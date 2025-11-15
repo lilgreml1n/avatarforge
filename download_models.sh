@@ -50,44 +50,43 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${BLUE}Downloading Qwen3 Image Edit Models${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
+# NOTE: HuggingFace appears to be blocked on this network (403 Forbidden)
+# These models require manual download - see instructions below
+
 # 1. Qwen3 Diffusion Model (4.3 GB)
-echo -e "${YELLOW}[1/4] Downloading Qwen3 diffusion model (4.3 GB)...${NC}"
-if [ -f "models/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors" ]; then
-    echo -e "${GREEN}✓ Already exists, skipping${NC}"
+echo -e "${YELLOW}[1/4] Checking Qwen3 diffusion model...${NC}"
+if [ -f "models/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors" ] && [ -s "models/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors" ]; then
+    SIZE=$(ls -lh models/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors | awk '{print $5}')
+    echo -e "${GREEN}✓ Already exists ($SIZE)${NC}"
 else
-    curl -L -C - -o models/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors \
-        "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_diffusion_models/resolve/main/qwen_image_edit_fp8_e4m3fn.safetensors?download=true"
-    echo -e "${GREEN}✓ Downloaded${NC}"
+    echo -e "${RED}⚠ Not found or empty - manual download required${NC}"
 fi
 
 # 2. Text Encoder (4.7 GB)
-echo -e "${YELLOW}[2/4] Downloading Qwen2.5-VL text encoder (4.7 GB)...${NC}"
-if [ -f "models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors" ]; then
-    echo -e "${GREEN}✓ Already exists, skipping${NC}"
+echo -e "${YELLOW}[2/4] Checking Qwen2.5-VL text encoder...${NC}"
+if [ -f "models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors" ] && [ -s "models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors" ]; then
+    SIZE=$(ls -lh models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors | awk '{print $5}')
+    echo -e "${GREEN}✓ Already exists ($SIZE)${NC}"
 else
-    curl -L -C - -o models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors \
-        "https://huggingface.co/Comfy-Org/Qwen2.5-VL_text_encoders/resolve/main/qwen_2.5_vl_7b_fp8_scaled.safetensors?download=true"
-    echo -e "${GREEN}✓ Downloaded${NC}"
+    echo -e "${RED}⚠ Not found or empty - manual download required${NC}"
 fi
 
 # 3. VAE Model (157 MB)
-echo -e "${YELLOW}[3/4] Downloading Qwen VAE model (157 MB)...${NC}"
-if [ -f "models/vae/qwen_image_vae.safetensors" ]; then
-    echo -e "${GREEN}✓ Already exists, skipping${NC}"
+echo -e "${YELLOW}[3/4] Checking Qwen VAE model...${NC}"
+if [ -f "models/vae/qwen_image_vae.safetensors" ] && [ -s "models/vae/qwen_image_vae.safetensors" ]; then
+    SIZE=$(ls -lh models/vae/qwen_image_vae.safetensors | awk '{print $5}')
+    echo -e "${GREEN}✓ Already exists ($SIZE)${NC}"
 else
-    curl -L -C - -o models/vae/qwen_image_vae.safetensors \
-        "https://huggingface.co/Comfy-Org/Qwen-Image_vae/resolve/main/qwen_image_vae.safetensors?download=true"
-    echo -e "${GREEN}✓ Downloaded${NC}"
+    echo -e "${RED}⚠ Not found or empty - manual download required${NC}"
 fi
 
 # 4. Lightning LoRA (291 MB)
-echo -e "${YELLOW}[4/4] Downloading Lightning LoRA (291 MB)...${NC}"
-if [ -f "models/loras/Qwen-Image-Lightning-4steps-V1.0.safetensors" ]; then
-    echo -e "${GREEN}✓ Already exists, skipping${NC}"
+echo -e "${YELLOW}[4/4] Checking Lightning LoRA...${NC}"
+if [ -f "models/loras/Qwen-Image-Lightning-4steps-V1.0.safetensors" ] && [ -s "models/loras/Qwen-Image-Lightning-4steps-V1.0.safetensors" ]; then
+    SIZE=$(ls -lh models/loras/Qwen-Image-Lightning-4steps-V1.0.safetensors | awk '{print $5}')
+    echo -e "${GREEN}✓ Already exists ($SIZE)${NC}"
 else
-    curl -L -C - -o models/loras/Qwen-Image-Lightning-4steps-V1.0.safetensors \
-        "https://huggingface.co/Comfy-Org/Qwen-Image_loras/resolve/main/Qwen-Image-Lightning-4steps-V1.0.safetensors?download=true"
-    echo -e "${GREEN}✓ Downloaded${NC}"
+    echo -e "${RED}⚠ Not found or empty - manual download required${NC}"
 fi
 
 echo ""
@@ -163,6 +162,34 @@ echo ""
 # ============================================
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${YELLOW}⚠️  MANUAL DOWNLOADS REQUIRED${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo -e "${RED}⚠️  NETWORK ISSUE DETECTED${NC}"
+echo -e "${YELLOW}HuggingFace appears to be blocked on this network (403 Forbidden).${NC}"
+echo -e "${YELLOW}You'll need to download Qwen3 models manually from a different network/machine.${NC}"
+echo ""
+echo -e "${GREEN}Qwen3 Models (Download from HuggingFace):${NC}"
+echo ""
+echo -e "${GREEN}1. Diffusion Model (4.3 GB)${NC}"
+echo -e "   URL: ${BLUE}https://huggingface.co/Comfy-Org/Qwen-Image-Edit_diffusion_models${NC}"
+echo -e "   File: qwen_image_edit_fp8_e4m3fn.safetensors"
+echo -e "   Save to: ${GREEN}$COMFYUI_PATH/models/diffusion_models/${NC}"
+echo ""
+echo -e "${GREEN}2. Text Encoder (4.7 GB)${NC}"
+echo -e "   URL: ${BLUE}https://huggingface.co/Comfy-Org/Qwen2.5-VL_text_encoders${NC}"
+echo -e "   File: qwen_2.5_vl_7b_fp8_scaled.safetensors"
+echo -e "   Save to: ${GREEN}$COMFYUI_PATH/models/text_encoders/${NC}"
+echo ""
+echo -e "${GREEN}3. VAE Model (157 MB)${NC}"
+echo -e "   URL: ${BLUE}https://huggingface.co/Comfy-Org/Qwen-Image_vae${NC}"
+echo -e "   File: qwen_image_vae.safetensors"
+echo -e "   Save to: ${GREEN}$COMFYUI_PATH/models/vae/${NC}"
+echo ""
+echo -e "${GREEN}4. Lightning LoRA (291 MB)${NC}"
+echo -e "   URL: ${BLUE}https://huggingface.co/Comfy-Org/Qwen-Image_loras${NC}"
+echo -e "   File: Qwen-Image-Lightning-4steps-V1.0.safetensors"
+echo -e "   Save to: ${GREEN}$COMFYUI_PATH/models/loras/${NC}"
+echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo -e "${YELLOW}The following models require a Civitai account:${NC}"
