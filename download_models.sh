@@ -66,6 +66,35 @@ check_file_valid() {
     return 0  # File exists and is valid
 }
 
+# Helper function to download and validate file
+# Usage: download_file "url" "output_path" min_size_mb
+download_file() {
+    local url="$1"
+    local output="$2"
+    local min_size_mb="$3"
+
+    # Try download without resume (HuggingFace doesn't like -C -)
+    curl -L --fail -o "$output" "$url"
+
+    # Check if download succeeded and file is valid size
+    if [ -f "$output" ]; then
+        local file_size=$(stat -f%z "$output" 2>/dev/null || stat -c%s "$output" 2>/dev/null)
+        local min_size_bytes=$((min_size_mb * 1024 * 1024))
+
+        if [ "$file_size" -lt "$min_size_bytes" ]; then
+            echo -e "${RED}✗ Download failed - file too small ($(($file_size / 1024 / 1024))MB < ${min_size_mb}MB)${NC}"
+            cat "$output"  # Show error message
+            rm -f "$output"
+            return 1
+        fi
+        echo -e "${GREEN}✓ Downloaded${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ Download failed${NC}"
+        return 1
+    fi
+}
+
 # ============================================
 # QWEN3 IMAGE EDIT MODELS
 # ============================================
@@ -78,9 +107,10 @@ echo -e "${YELLOW}[1/4] Downloading Qwen3 diffusion model (4.3 GB)...${NC}"
 if check_file_valid "models/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors" 4000; then
     echo -e "${GREEN}✓ Already exists, skipping${NC}"
 else
-    curl -L -C - -o models/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors \
-        "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_diffusion_models/resolve/main/qwen_image_edit_fp8_e4m3fn.safetensors?download=true"
-    echo -e "${GREEN}✓ Downloaded${NC}"
+    download_file \
+        "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_diffusion_models/resolve/main/qwen_image_edit_fp8_e4m3fn.safetensors?download=true" \
+        "models/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors" \
+        4000
 fi
 
 # 2. Text Encoder (4.7 GB)
@@ -88,9 +118,10 @@ echo -e "${YELLOW}[2/4] Downloading Qwen2.5-VL text encoder (4.7 GB)...${NC}"
 if check_file_valid "models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors" 4500; then
     echo -e "${GREEN}✓ Already exists, skipping${NC}"
 else
-    curl -L -C - -o models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors \
-        "https://huggingface.co/Comfy-Org/Qwen2.5-VL_text_encoders/resolve/main/qwen_2.5_vl_7b_fp8_scaled.safetensors?download=true"
-    echo -e "${GREEN}✓ Downloaded${NC}"
+    download_file \
+        "https://huggingface.co/Comfy-Org/Qwen2.5-VL_text_encoders/resolve/main/qwen_2.5_vl_7b_fp8_scaled.safetensors?download=true" \
+        "models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors" \
+        4500
 fi
 
 # 3. VAE Model (157 MB)
@@ -98,9 +129,10 @@ echo -e "${YELLOW}[3/4] Downloading Qwen VAE model (157 MB)...${NC}"
 if check_file_valid "models/vae/qwen_image_vae.safetensors" 150; then
     echo -e "${GREEN}✓ Already exists, skipping${NC}"
 else
-    curl -L -C - -o models/vae/qwen_image_vae.safetensors \
-        "https://huggingface.co/Comfy-Org/Qwen-Image_vae/resolve/main/qwen_image_vae.safetensors?download=true"
-    echo -e "${GREEN}✓ Downloaded${NC}"
+    download_file \
+        "https://huggingface.co/Comfy-Org/Qwen-Image_vae/resolve/main/qwen_image_vae.safetensors?download=true" \
+        "models/vae/qwen_image_vae.safetensors" \
+        150
 fi
 
 # 4. Lightning LoRA (291 MB)
@@ -108,9 +140,10 @@ echo -e "${YELLOW}[4/4] Downloading Lightning LoRA (291 MB)...${NC}"
 if check_file_valid "models/loras/Qwen-Image-Lightning-4steps-V1.0.safetensors" 280; then
     echo -e "${GREEN}✓ Already exists, skipping${NC}"
 else
-    curl -L -C - -o models/loras/Qwen-Image-Lightning-4steps-V1.0.safetensors \
-        "https://huggingface.co/Comfy-Org/Qwen-Image_loras/resolve/main/Qwen-Image-Lightning-4steps-V1.0.safetensors?download=true"
-    echo -e "${GREEN}✓ Downloaded${NC}"
+    download_file \
+        "https://huggingface.co/Comfy-Org/Qwen-Image_loras/resolve/main/Qwen-Image-Lightning-4steps-V1.0.safetensors?download=true" \
+        "models/loras/Qwen-Image-Lightning-4steps-V1.0.safetensors" \
+        280
 fi
 
 echo ""
