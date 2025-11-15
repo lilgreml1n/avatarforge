@@ -11,8 +11,9 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# ComfyUI path
-COMFYUI_PATH="/home/user/Documents/git/avatarforge/comfyui-dev"
+# ComfyUI path (relative to script location)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMFYUI_PATH="$SCRIPT_DIR/comfyui-dev"
 
 echo -e "${BLUE}================================================${NC}"
 echo -e "${BLUE}  AvatarForge Model Setup${NC}"
@@ -170,11 +171,13 @@ echo -e "${GREEN}1. RealVisXL V5.0${NC} (Recommended - Photorealistic)"
 echo -e "   URL: ${BLUE}https://civitai.com/models/139562/realvisxl-v50${NC}"
 echo -e "   File: RealVisXL_V5.0.safetensors (~6.5 GB)"
 echo -e "   Save to: ${GREEN}$COMFYUI_PATH/models/checkpoints/${NC}"
+echo -e "            ${GREEN}(or comfyui-dev/models/checkpoints/ from avatarforge directory)${NC}"
 echo ""
 echo -e "${GREEN}2. JuggernautXL V10${NC} (Recommended - Versatile)"
 echo -e "   URL: ${BLUE}https://civitai.com/models/133005/juggernaut-xl${NC}"
 echo -e "   File: JuggernautXL_v10.safetensors (~6.5 GB)"
 echo -e "   Save to: ${GREEN}$COMFYUI_PATH/models/checkpoints/${NC}"
+echo -e "            ${GREEN}(or comfyui-dev/models/checkpoints/ from avatarforge directory)${NC}"
 echo ""
 echo -e "${YELLOW}Optional (choose one or both):${NC}"
 echo ""
