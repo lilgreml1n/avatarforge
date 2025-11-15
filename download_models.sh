@@ -43,6 +43,44 @@ mkdir -p models/upscale_models
 echo -e "${GREEN}✓ Directories ready${NC}"
 echo ""
 
+# Check for HuggingFace token
+HF_TOKEN="${HF_TOKEN:-}"
+if [ -z "$HF_TOKEN" ]; then
+    # Try to read from huggingface-cli cache
+    HF_TOKEN_FILE="$HOME/.cache/huggingface/token"
+    if [ -f "$HF_TOKEN_FILE" ]; then
+        HF_TOKEN=$(cat "$HF_TOKEN_FILE" 2>/dev/null | tr -d '\n')
+    fi
+fi
+
+if [ -z "$HF_TOKEN" ]; then
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${YELLOW}⚠️  HuggingFace Authentication Required${NC}"
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+    echo -e "${RED}The Qwen models require a HuggingFace account and token.${NC}"
+    echo ""
+    echo -e "${GREEN}To get your token:${NC}"
+    echo -e "1. Create a free account at: ${BLUE}https://huggingface.co/join${NC}"
+    echo -e "2. Visit: ${BLUE}https://huggingface.co/settings/tokens${NC}"
+    echo -e "3. Click 'New token' and create a READ token"
+    echo -e "4. Copy the token"
+    echo ""
+    echo -e "${GREEN}Then run this script with your token:${NC}"
+    echo -e "   ${YELLOW}export HF_TOKEN='your_token_here'${NC}"
+    echo -e "   ${YELLOW}bash download_models.sh${NC}"
+    echo ""
+    echo -e "${GREEN}Or install huggingface-cli and login:${NC}"
+    echo -e "   ${YELLOW}pip install -U huggingface_hub${NC}"
+    echo -e "   ${YELLOW}huggingface-cli login${NC}"
+    echo ""
+    echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✓ HuggingFace token found${NC}"
+echo ""
+
 # Helper function to check if file exists and has minimum size
 # Usage: check_file_valid "path/to/file" min_size_mb
 check_file_valid() {
@@ -73,8 +111,12 @@ download_file() {
     local output="$2"
     local min_size_mb="$3"
 
-    # Try download without resume (HuggingFace doesn't like -C -)
-    curl -L --fail -o "$output" "$url"
+    # Download with HuggingFace token if available
+    if [ -n "$HF_TOKEN" ]; then
+        curl -L --fail -H "Authorization: Bearer $HF_TOKEN" -o "$output" "$url"
+    else
+        curl -L --fail -o "$output" "$url"
+    fi
 
     # Check if download succeeded and file is valid size
     if [ -f "$output" ]; then
