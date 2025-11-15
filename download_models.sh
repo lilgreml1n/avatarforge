@@ -55,9 +55,8 @@ echo -e "${YELLOW}[1/4] Downloading Qwen3 diffusion model (4.3 GB)...${NC}"
 if [ -f "models/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors" ]; then
     echo -e "${GREEN}✓ Already exists, skipping${NC}"
 else
-    wget -c --no-check-certificate -P models/diffusion_models \
-        "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_diffusion_models/resolve/main/qwen_image_edit_fp8_e4m3fn.safetensors?download=true" \
-        -O models/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors
+    curl -L -C - -o models/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors \
+        "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_diffusion_models/resolve/main/qwen_image_edit_fp8_e4m3fn.safetensors?download=true"
     echo -e "${GREEN}✓ Downloaded${NC}"
 fi
 
@@ -66,9 +65,8 @@ echo -e "${YELLOW}[2/4] Downloading Qwen2.5-VL text encoder (4.7 GB)...${NC}"
 if [ -f "models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors" ]; then
     echo -e "${GREEN}✓ Already exists, skipping${NC}"
 else
-    wget -c --no-check-certificate -P models/text_encoders \
-        "https://huggingface.co/Comfy-Org/Qwen2.5-VL_text_encoders/resolve/main/qwen_2.5_vl_7b_fp8_scaled.safetensors?download=true" \
-        -O models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors
+    curl -L -C - -o models/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors \
+        "https://huggingface.co/Comfy-Org/Qwen2.5-VL_text_encoders/resolve/main/qwen_2.5_vl_7b_fp8_scaled.safetensors?download=true"
     echo -e "${GREEN}✓ Downloaded${NC}"
 fi
 
@@ -77,9 +75,8 @@ echo -e "${YELLOW}[3/4] Downloading Qwen VAE model (157 MB)...${NC}"
 if [ -f "models/vae/qwen_image_vae.safetensors" ]; then
     echo -e "${GREEN}✓ Already exists, skipping${NC}"
 else
-    wget -c --no-check-certificate -P models/vae \
-        "https://huggingface.co/Comfy-Org/Qwen-Image_vae/resolve/main/qwen_image_vae.safetensors?download=true" \
-        -O models/vae/qwen_image_vae.safetensors
+    curl -L -C - -o models/vae/qwen_image_vae.safetensors \
+        "https://huggingface.co/Comfy-Org/Qwen-Image_vae/resolve/main/qwen_image_vae.safetensors?download=true"
     echo -e "${GREEN}✓ Downloaded${NC}"
 fi
 
@@ -88,9 +85,8 @@ echo -e "${YELLOW}[4/4] Downloading Lightning LoRA (291 MB)...${NC}"
 if [ -f "models/loras/Qwen-Image-Lightning-4steps-V1.0.safetensors" ]; then
     echo -e "${GREEN}✓ Already exists, skipping${NC}"
 else
-    wget -c --no-check-certificate -P models/loras \
-        "https://huggingface.co/Comfy-Org/Qwen-Image_loras/resolve/main/Qwen-Image-Lightning-4steps-V1.0.safetensors?download=true" \
-        -O models/loras/Qwen-Image-Lightning-4steps-V1.0.safetensors
+    curl -L -C - -o models/loras/Qwen-Image-Lightning-4steps-V1.0.safetensors \
+        "https://huggingface.co/Comfy-Org/Qwen-Image_loras/resolve/main/Qwen-Image-Lightning-4steps-V1.0.safetensors?download=true"
     echo -e "${GREEN}✓ Downloaded${NC}"
 fi
 
@@ -120,9 +116,8 @@ echo -e "${YELLOW}[2/3] Downloading 4x-UltraSharp (67 MB)...${NC}"
 if [ -f "models/upscale_models/4x-UltraSharp.pth" ]; then
     echo -e "${GREEN}✓ Already exists, skipping${NC}"
 else
-    wget -c --no-check-certificate -P models/upscale_models \
-        "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth?download=true" \
-        -O models/upscale_models/4x-UltraSharp.pth
+    curl -L -C - -o models/upscale_models/4x-UltraSharp.pth \
+        "https://huggingface.co/Kim2091/UltraSharp/resolve/main/4x-UltraSharp.pth?download=true"
     echo -e "${GREEN}✓ Downloaded${NC}"
 fi
 
@@ -131,9 +126,8 @@ echo -e "${YELLOW}[3/3] Downloading 4x_foolhardy_Remacri (67 MB)...${NC}"
 if [ -f "models/upscale_models/4x_foolhardy_Remacri.pth" ]; then
     echo -e "${GREEN}✓ Already exists, skipping${NC}"
 else
-    wget -c --no-check-certificate -P models/upscale_models \
-        "https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth?download=true" \
-        -O models/upscale_models/4x_foolhardy_Remacri.pth
+    curl -L -C - -o models/upscale_models/4x_foolhardy_Remacri.pth \
+        "https://huggingface.co/FacehugmanIII/4x_foolhardy_Remacri/resolve/main/4x_foolhardy_Remacri.pth?download=true"
     echo -e "${GREEN}✓ Downloaded${NC}"
 fi
 
