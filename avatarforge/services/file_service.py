@@ -8,7 +8,7 @@ import hashlib
 import uuid
 from pathlib import Path
 from typing import Optional, Tuple, BinaryIO
-from datetime import datetime
+from datetime import datetime, timezone
 from PIL import Image
 import io
 
@@ -41,7 +41,8 @@ class FileService:
     async def upload_file(
         self,
         file: UploadFile,
-        file_type: str = "pose_image"
+        file_type: str = "pose_image",
+        user_id: str = None
     ) -> UploadedFile:
         """
         Upload a file with automatic deduplication
@@ -49,6 +50,7 @@ class FileService:
         Args:
             file: The uploaded file
             file_type: Type of file ('pose_image', 'reference_image')
+            user_id: Optional user ID who is uploading the file
 
         Returns:
             UploadedFile: Database record (existing or newly created)
@@ -84,7 +86,7 @@ class FileService:
 
         if existing_file:
             # File already exists - update last accessed and return
-            existing_file.last_accessed = datetime.utcnow()
+            existing_file.last_accessed = datetime.now(timezone.utc)
             self.db.commit()
             self.db.refresh(existing_file)
             return existing_file
@@ -106,6 +108,9 @@ class FileService:
                     detail=f"Image dimensions too small: {width}x{height}. Min: {self.MIN_DIMENSION}x{self.MIN_DIMENSION}"
                 )
 
+        except HTTPException:
+            # Re-raise HTTP exceptions (validation errors)
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=400,
@@ -140,7 +145,8 @@ class FileService:
             width=width,
             height=height,
             storage_path=str(storage_subpath / storage_filename),
-            reference_count=0
+            reference_count=0,
+            user_id=user_id
         )
 
         self.db.add(db_file)
@@ -172,7 +178,7 @@ class FileService:
         file = self.get_file_by_id(file_id)
         if file:
             file.reference_count += 1
-            file.last_accessed = datetime.utcnow()
+            file.last_accessed = datetime.now(timezone.utc)
             self.db.commit()
 
     def decrement_reference(self, file_id: str):
@@ -228,7 +234,7 @@ class FileService:
         """
         from datetime import timedelta
 
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
         orphaned_files = self.db.query(UploadedFile).filter(
             UploadedFile.reference_count == 0,

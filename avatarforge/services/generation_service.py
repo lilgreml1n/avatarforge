@@ -6,7 +6,7 @@ Handles creation, tracking, and execution of ComfyUI workflows
 import uuid
 import requests
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -36,6 +36,7 @@ class GenerationService:
         reference_file_id: Optional[str] = None,
         pose_image: Optional[str] = None,  # Legacy base64 support
         reference_image: Optional[str] = None,  # Legacy base64 support
+        user_id: Optional[str] = None,
     ) -> Generation:
         """
         Create a new generation request
@@ -50,6 +51,7 @@ class GenerationService:
             reference_file_id: ID of uploaded reference image
             pose_image: Legacy base64 pose image
             reference_image: Legacy base64 reference image
+            user_id: Optional user ID who is requesting the generation
 
         Returns:
             Generation: Created generation record
@@ -79,6 +81,7 @@ class GenerationService:
             pose_type=pose_type,
             pose_file_id=pose_file_id,
             reference_file_id=reference_file_id,
+            user_id=user_id,
             status="queued"
         )
 
@@ -158,7 +161,7 @@ class GenerationService:
 
             # Update status
             generation.status = "processing"
-            generation.started_at = datetime.utcnow()
+            generation.started_at = datetime.now(timezone.utc)
             generation.workflow = workflow
             self.db.commit()
 
@@ -182,14 +185,14 @@ class GenerationService:
         except requests.exceptions.RequestException as e:
             generation.status = "failed"
             generation.error_message = f"ComfyUI request failed: {str(e)}"
-            generation.completed_at = datetime.utcnow()
+            generation.completed_at = datetime.now(timezone.utc)
             self.db.commit()
             raise HTTPException(status_code=500, detail=generation.error_message)
 
         except Exception as e:
             generation.status = "failed"
             generation.error_message = f"Generation failed: {str(e)}"
-            generation.completed_at = datetime.utcnow()
+            generation.completed_at = datetime.now(timezone.utc)
             self.db.commit()
             raise HTTPException(status_code=500, detail=generation.error_message)
 
@@ -249,7 +252,7 @@ class GenerationService:
         generation.status = status
 
         if status in ["completed", "failed"]:
-            generation.completed_at = datetime.utcnow()
+            generation.completed_at = datetime.now(timezone.utc)
 
         if output_files:
             generation.output_files = output_files

@@ -1,5 +1,5 @@
 """File upload and management schemas"""
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Dict
 from datetime import datetime
 
@@ -33,7 +33,7 @@ class FileUploadResponse(BaseModel):
     dimensions: Dict[str, int] = Field(
         ...,
         description="Image dimensions in pixels",
-        example={"width": 512, "height": 512}
+        json_schema_extra={"example": {"width": 512, "height": 512}}
     )
     url: str = Field(
         ...,
@@ -48,8 +48,7 @@ class FileUploadResponse(BaseModel):
         description="Timestamp when file was first uploaded"
     )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FileInfo(BaseModel):
@@ -63,8 +62,7 @@ class FileInfo(BaseModel):
     height: Optional[int]
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FileHashCheckResponse(BaseModel):
@@ -80,4 +78,20 @@ class FileHashCheckResponse(BaseModel):
     message: str = Field(
         ...,
         description="Human-readable message"
+    )
+
+
+class CleanupResponse(BaseModel):
+    """Response for cleanup operation"""
+    files_deleted: int = Field(
+        ...,
+        description="Number of files permanently deleted"
+    )
+    cleanup_days: int = Field(
+        ...,
+        description="Files older than this many days were deleted"
+    )
+    message: str = Field(
+        ...,
+        description="Summary message"
     )

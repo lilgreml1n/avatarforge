@@ -73,15 +73,19 @@ class TestGenerationService:
         """Test creating generation with invalid reference file ID"""
         mock_pose_file = Mock(spec=UploadedFile)
 
-        with patch.object(generation_service.file_service, 'get_file_by_id') as mock_get:
-            mock_get.side_effect = [mock_pose_file, None]  # pose found, reference not found
+        def mock_get_file(file_id):
+            if file_id == "valid-id":
+                return mock_pose_file
+            return None
 
-            with pytest.raises(HTTPException) as exc_info:
-                generation_service.create_generation(
-                    prompt="test",
-                    pose_file_id="valid-id",
-                    reference_file_id="invalid-id"
-                )
+        with patch.object(generation_service.file_service, 'get_file_by_id', side_effect=mock_get_file):
+            with patch.object(generation_service.file_service, 'increment_reference'):
+                with pytest.raises(HTTPException) as exc_info:
+                    generation_service.create_generation(
+                        prompt="test",
+                        pose_file_id="valid-id",
+                        reference_file_id="invalid-id"
+                    )
 
         assert exc_info.value.status_code == 404
         assert "Reference file not found" in exc_info.value.detail
@@ -219,12 +223,21 @@ class TestGenerationService:
     def test_list_generations_with_status_filter(self, generation_service, mock_db):
         """Test listing generations with status filter"""
         mock_gens = [Mock()]
-        mock_query = mock_db.query.return_value
-        mock_query.filter.return_value.order_by.return_value.limit.return_value.offset.return_value.all.return_value = mock_gens
+
+        # Setup the mock chain properly
+        mock_query = Mock()
+        mock_db.query.return_value = mock_query
+        mock_query.order_by.return_value = mock_query
+        mock_query.filter.return_value = mock_query
+        mock_query.limit.return_value = mock_query
+        mock_query.offset.return_value = mock_query
+        mock_query.all.return_value = mock_gens
 
         result = generation_service.list_generations(status="completed")
 
         assert len(result) == 1
+        # Verify filter was called with status
+        mock_query.filter.assert_called_once()
 
     def test_update_generation_status(self, generation_service, mock_db):
         """Test updating generation status"""
