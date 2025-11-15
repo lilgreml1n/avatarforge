@@ -1553,13 +1553,1307 @@ for prompt in prompts:
 
 ---
 
-Due to length, I'll commit what we have so far. This is **MASSIVE** already! Should I continue with the remaining 6 tutorials (6-12)?
+## Tutorial 6: Creating Character Sheets
 
-Current progress:
-- ✅ TROUBLESHOOTING.md: 41 issues (~2,400 lines)
-- ✅ TUTORIALS.md (Part 1): 5 complete tutorials (~3,500 lines)
+**Time:** 30 minutes
+**Level:** Intermediate
+**Prerequisites:** Tutorials 1-5 completed
 
-We still have 7 more tutorials to add:
-- Tutorial 6-12 (Intermediate to Advanced)
+### What You'll Learn
+- Generate complete character sheets
+- Organize multi-view outputs
+- Create consistent characters across views
+- Build an automated character sheet generator
+- Export character sheets for different uses
 
-This is turning into legendary documentation! Want me to continue? 🚀
+### Part 1: Understanding Character Sheets
+
+**6.1 What is a character sheet?**
+```
+A character sheet contains multiple views of the same character:
+- Front view
+- Back view
+- Side view (profile)
+- Quarter view (3/4 angle)
+
+Used for:
+✓ Game development (3D modeling reference)
+✓ Animation (turnaround sheets)
+✓ Character design portfolios
+✓ Consistent character reference
+```
+
+**6.2 Character sheet best practices**
+```
+✓ Use same prompt for all views
+✓ Keep clothing/appearance consistent
+✓ Use descriptive, detailed prompts
+✓ Organize outputs in dedicated folders
+✓ Name files clearly (front.png, back.png, etc.)
+```
+
+### Part 2: Manual Character Sheet Creation
+
+**6.3 Generate each view separately**
+
+```python
+# manual_character_sheet.py
+import requests
+import time
+import os
+
+def generate_single_pose(prompt, pose_type, output_dir):
+    """Generate a single pose view."""
+    print(f"Generating {pose_type} view...")
+
+    # Generate specific pose
+    response = requests.post(
+        f'http://localhost:8000/avatarforge-controller/generate_pose?pose={pose_type}',
+        json={"prompt": prompt, "realism": False}
+    )
+
+    generation_id = response.json()['generation_id']
+
+    # Wait for completion
+    while True:
+        status = requests.get(
+            f'http://localhost:8000/avatarforge-controller/generations/{generation_id}'
+        ).json()
+
+        if status['status'] == 'completed':
+            # Download
+            output_url = status['output_files'][0]['url']
+            filename = f"{pose_type}.png"
+            filepath = os.path.join(output_dir, filename)
+
+            url = f"http://localhost:8000{output_url}"
+            response = requests.get(url)
+
+            with open(filepath, 'wb') as f:
+                f.write(response.content)
+
+            print(f"   ✓ {filename}")
+            return filepath
+
+        elif status['status'] == 'failed':
+            print(f"   ✗ Failed: {status.get('error')}")
+            return None
+
+        time.sleep(2)
+
+def create_manual_character_sheet(prompt, character_name):
+    """Create character sheet manually (one view at a time)."""
+    output_dir = f"character_sheets/{character_name}"
+    os.makedirs(output_dir, exist_ok=True)
+
+    print(f"🎨 Creating character sheet: {character_name}\n")
+
+    poses = ['front', 'back', 'side', 'quarter']
+    files = {}
+
+    for pose in poses:
+        filepath = generate_single_pose(prompt, pose, output_dir)
+        if filepath:
+            files[pose] = filepath
+
+    print(f"\n✅ Character sheet complete!")
+    print(f"   Location: {output_dir}/")
+    print(f"   Files: {len(files)}/4")
+
+    return files
+
+# Usage
+if __name__ == '__main__':
+    prompt = "female warrior character, blue plate armor, long white hair, determined expression"
+    create_manual_character_sheet(prompt, "blue_warrior")
+```
+
+**6.4 Run manual generation**
+```bash
+python manual_character_sheet.py
+
+# Creates:
+# character_sheets/blue_warrior/
+#   front.png
+#   back.png
+#   side.png
+#   quarter.png
+```
+
+### Part 3: Automated Character Sheet (All Poses at Once)
+
+**6.5 Use generate_all_poses endpoint**
+
+```python
+# auto_character_sheet.py
+import requests
+import time
+import os
+from pathlib import Path
+
+def create_character_sheet(prompt, character_name, clothing=None, style=None):
+    """Create complete character sheet automatically."""
+    print(f"🎨 Creating character sheet: {character_name}")
+    print(f"   Prompt: {prompt}\n")
+
+    # Build request
+    request_data = {"prompt": prompt, "realism": False}
+    if clothing:
+        request_data['clothing'] = clothing
+    if style:
+        request_data['style'] = style
+
+    # Generate all poses at once
+    response = requests.post(
+        'http://localhost:8000/avatarforge-controller/generate_all_poses',
+        json=request_data
+    )
+
+    generation_id = response.json()['generation_id']
+    print(f"✓ Started: {generation_id}\n")
+
+    # Wait for completion with progress
+    print("⏳ Generating", end="")
+    start_time = time.time()
+
+    while True:
+        status = requests.get(
+            f'http://localhost:8000/avatarforge-controller/generations/{generation_id}'
+        ).json()
+
+        if status['status'] == 'completed':
+            elapsed = time.time() - start_time
+            print(f"\n\n✅ Complete in {elapsed:.1f}s!\n")
+            break
+        elif status['status'] == 'failed':
+            print(f"\n\n✗ Failed: {status.get('error')}")
+            return None
+
+        print(".", end="", flush=True)
+        time.sleep(3)
+
+    # Download all files
+    output_dir = f"character_sheets/{character_name}"
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    print(f"📥 Downloading to {output_dir}/")
+    files = {}
+
+    for output in status['output_files']:
+        pose_type = output.get('pose_type', 'output')
+        filename = f"{pose_type}.png"
+        filepath = os.path.join(output_dir, filename)
+
+        url = f"http://localhost:8000{output['url']}"
+        response = requests.get(url)
+
+        with open(filepath, 'wb') as f:
+            f.write(response.content)
+
+        files[pose_type] = filepath
+        size_mb = len(response.content) / 1024 / 1024
+        print(f"   ✓ {filename} ({size_mb:.1f} MB)")
+
+    print(f"\n✅ Character sheet ready!")
+    print(f"   Location: {output_dir}/")
+
+    return files
+
+# Usage
+if __name__ == '__main__':
+    import sys
+
+    if len(sys.argv) < 3:
+        print("Usage: python auto_character_sheet.py <name> '<prompt>'")
+        print("Example: python auto_character_sheet.py warrior 'warrior character, blue armor'")
+        sys.exit(1)
+
+    name = sys.argv[1]
+    prompt = sys.argv[2]
+
+    create_character_sheet(prompt, name)
+```
+
+**6.6 Use the automated script**
+```bash
+# Simple
+python auto_character_sheet.py warrior "warrior character, blue armor"
+
+# With detailed prompt
+python auto_character_sheet.py mage "female mage character, purple robes, long black hair, wise expression"
+
+# Creates organized folders:
+# character_sheets/warrior/
+# character_sheets/mage/
+```
+
+### Part 4: Batch Character Sheet Creation
+
+**6.7 Create multiple character sheets**
+
+```python
+# batch_character_sheets.py
+import requests
+import time
+import os
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def create_one_sheet(character_data):
+    """Create single character sheet."""
+    name = character_data['name']
+    prompt = character_data['prompt']
+    clothing = character_data.get('clothing')
+
+    print(f"\n[{name}] Starting...")
+
+    # Build request
+    request_data = {"prompt": prompt, "realism": False}
+    if clothing:
+        request_data['clothing'] = clothing
+
+    # Generate
+    response = requests.post(
+        'http://localhost:8000/avatarforge-controller/generate_all_poses',
+        json=request_data
+    )
+    generation_id = response.json()['generation_id']
+
+    # Wait
+    while True:
+        status = requests.get(
+            f'http://localhost:8000/avatarforge-controller/generations/{generation_id}'
+        ).json()
+
+        if status['status'] in ['completed', 'failed']:
+            break
+        time.sleep(3)
+
+    if status['status'] == 'failed':
+        print(f"[{name}] ✗ Failed")
+        return None
+
+    # Download
+    output_dir = f"character_sheets/{name}"
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    for output in status['output_files']:
+        pose = output.get('pose_type', 'output')
+        filename = f"{pose}.png"
+        filepath = os.path.join(output_dir, filename)
+
+        url = f"http://localhost:8000{output['url']}"
+        response = requests.get(url)
+
+        with open(filepath, 'wb') as f:
+            f.write(response.content)
+
+    print(f"[{name}] ✓ Complete ({len(status['output_files'])} poses)")
+    return output_dir
+
+def create_batch_sheets(characters, max_workers=2):
+    """Create multiple character sheets in parallel."""
+    print(f"🎨 Creating {len(characters)} character sheets\n")
+
+    results = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(create_one_sheet, char): char
+            for char in characters
+        }
+
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                results.append(result)
+
+    print(f"\n✅ Completed {len(results)}/{len(characters)} character sheets")
+    return results
+
+# Usage
+if __name__ == '__main__':
+    # Define your party/characters
+    party = [
+        {
+            'name': 'warrior',
+            'prompt': 'male warrior character, blue armor, sword and shield',
+            'clothing': 'heavy plate armor with blue and silver colors'
+        },
+        {
+            'name': 'mage',
+            'prompt': 'female mage character, purple robes, staff',
+            'clothing': 'flowing wizard robes with mystical symbols'
+        },
+        {
+            'name': 'rogue',
+            'prompt': 'male rogue character, dark leather, daggers',
+            'clothing': 'black leather armor, hooded cloak'
+        },
+        {
+            'name': 'cleric',
+            'prompt': 'female cleric character, white robes, holy symbol',
+            'clothing': 'white and gold priestly vestments'
+        }
+    ]
+
+    create_batch_sheets(party, max_workers=2)
+```
+
+**6.8 Run batch creation**
+```bash
+python batch_character_sheets.py
+
+# Creates complete sheets for entire party
+# character_sheets/warrior/
+# character_sheets/mage/
+# character_sheets/rogue/
+# character_sheets/cleric/
+```
+
+### Part 5: Character Sheet Organization
+
+**6.9 Organized file structure**
+
+```bash
+# Good structure
+character_sheets/
+├── blue_warrior/
+│   ├── front.png
+│   ├── back.png
+│   ├── side.png
+│   ├── quarter.png
+│   └── info.txt          # Character metadata
+├── purple_mage/
+│   ├── front.png
+│   ├── back.png
+│   ├── side.png
+│   ├── quarter.png
+│   └── info.txt
+└── party_complete/        # Combined sheets
+    └── all_characters.png
+```
+
+**6.10 Create metadata file**
+
+```python
+# add_metadata.py
+import json
+import os
+
+def save_character_info(name, prompt, clothing, style, output_dir):
+    """Save character metadata."""
+    info = {
+        "name": name,
+        "prompt": prompt,
+        "clothing": clothing or "Not specified",
+        "style": style or "fantasy art",
+        "poses": ["front", "back", "side", "quarter"],
+        "created": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+    # Save as JSON
+    json_path = os.path.join(output_dir, "info.json")
+    with open(json_path, 'w') as f:
+        json.dump(info, f, indent=2)
+
+    # Save as text
+    txt_path = os.path.join(output_dir, "info.txt")
+    with open(txt_path, 'w') as f:
+        f.write(f"Character: {name}\n")
+        f.write(f"Prompt: {prompt}\n")
+        f.write(f"Clothing: {info['clothing']}\n")
+        f.write(f"Style: {info['style']}\n")
+        f.write(f"Created: {info['created']}\n")
+        f.write(f"\nPoses included:\n")
+        for pose in info['poses']:
+            f.write(f"  - {pose}.png\n")
+
+    print(f"   ✓ Saved metadata")
+```
+
+### Part 6: Advanced Character Sheet Features
+
+**6.11 Create contact sheet (all views in one image)**
+
+```python
+# create_contact_sheet.py
+from PIL import Image
+import os
+
+def create_contact_sheet(character_dir, output_filename="contact_sheet.png"):
+    """Combine all pose views into one image."""
+    poses = ['front', 'back', 'side', 'quarter']
+    images = []
+
+    # Load all images
+    for pose in poses:
+        img_path = os.path.join(character_dir, f"{pose}.png")
+        if os.path.exists(img_path):
+            images.append(Image.open(img_path))
+
+    if not images:
+        print("No images found")
+        return None
+
+    # Calculate dimensions (2x2 grid)
+    width = images[0].width * 2
+    height = images[0].height * 2
+
+    # Create contact sheet
+    contact = Image.new('RGB', (width, height), 'white')
+
+    # Paste images
+    positions = [
+        (0, 0),                    # front (top-left)
+        (images[0].width, 0),      # back (top-right)
+        (0, images[0].height),     # side (bottom-left)
+        (images[0].width, images[0].height)  # quarter (bottom-right)
+    ]
+
+    for img, pos in zip(images, positions):
+        contact.paste(img, pos)
+
+    # Save
+    output_path = os.path.join(character_dir, output_filename)
+    contact.save(output_path, quality=95)
+
+    print(f"✓ Contact sheet saved: {output_filename}")
+    return output_path
+
+# Usage
+create_contact_sheet("character_sheets/warrior")
+```
+
+**6.12 Add labels to contact sheet**
+
+```python
+# labeled_contact_sheet.py
+from PIL import Image, ImageDraw, ImageFont
+import os
+
+def create_labeled_sheet(character_dir, character_name):
+    """Create contact sheet with labels."""
+    poses = ['front', 'back', 'side', 'quarter']
+    images = []
+
+    # Load images
+    for pose in poses:
+        img_path = os.path.join(character_dir, f"{pose}.png")
+        if os.path.exists(img_path):
+            images.append(Image.open(img_path))
+
+    # Create larger canvas for labels
+    img_width = images[0].width
+    img_height = images[0].height
+    label_height = 40
+
+    # Grid size
+    grid_width = img_width * 2
+    grid_height = (img_height + label_height) * 2
+
+    # Create sheet
+    sheet = Image.new('RGB', (grid_width, grid_height), 'white')
+    draw = ImageDraw.Draw(sheet)
+
+    # Try to use a font (fallback to default)
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+    except:
+        font = ImageFont.load_default()
+
+    # Positions and labels
+    layout = [
+        ((0, 0), 'FRONT'),
+        ((img_width, 0), 'BACK'),
+        ((0, img_height + label_height), 'SIDE'),
+        ((img_width, img_height + label_height), '3/4 VIEW')
+    ]
+
+    # Paste images with labels
+    for i, (img, (pos, label)) in enumerate(zip(images, layout)):
+        x, y = pos
+
+        # Draw label
+        label_y = y if i < 2 else y - label_height
+        draw.text((x + 10, label_y + 10), label, fill='black', font=font)
+
+        # Paste image below label
+        img_y = y + label_height if i < 2 else y
+        sheet.paste(img, (x, img_y))
+
+    # Add title
+    title = f"{character_name.upper()} - CHARACTER SHEET"
+    title_width = draw.textlength(title, font=font) if hasattr(draw, 'textlength') else len(title) * 12
+    title_x = (grid_width - title_width) // 2
+    draw.text((title_x, grid_height - label_height + 10), title, fill='black', font=font)
+
+    # Save
+    output_path = os.path.join(character_dir, "character_sheet.png")
+    sheet.save(output_path, quality=95)
+
+    print(f"✓ Labeled sheet saved: {output_path}")
+    return output_path
+
+# Usage
+create_labeled_sheet("character_sheets/warrior", "Blue Warrior")
+```
+
+### Part 7: Export for Different Uses
+
+**6.13 Export for game development**
+
+```python
+# export_for_game.py
+import os
+import shutil
+from pathlib import Path
+
+def export_for_unity(character_dir, game_name):
+    """
+    Export character sheet in Unity-friendly format.
+
+    Structure:
+    game_assets/<game_name>/Characters/<character>/
+        Textures/
+            character_front.png
+            character_back.png
+            character_side.png
+            character_quarter.png
+    """
+    character_name = os.path.basename(character_dir)
+    export_dir = f"game_assets/{game_name}/Characters/{character_name}/Textures"
+    Path(export_dir).mkdir(parents=True, exist_ok=True)
+
+    poses = ['front', 'back', 'side', 'quarter']
+
+    for pose in poses:
+        src = os.path.join(character_dir, f"{pose}.png")
+        if os.path.exists(src):
+            dst = os.path.join(export_dir, f"{character_name}_{pose}.png")
+            shutil.copy2(src, dst)
+            print(f"✓ Exported: {character_name}_{pose}.png")
+
+    print(f"\n✅ Exported for Unity")
+    print(f"   Location: {export_dir}/")
+
+# Usage
+export_for_unity("character_sheets/warrior", "MyRPG")
+```
+
+**6.14 Export for portfolio**
+
+```python
+# export_for_portfolio.py
+import os
+import shutil
+from PIL import Image
+
+def export_for_portfolio(character_dir, portfolio_dir="portfolio"):
+    """Export high-quality character sheet for portfolio."""
+    character_name = os.path.basename(character_dir)
+    output_dir = os.path.join(portfolio_dir, character_name)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    # Create contact sheet
+    create_labeled_sheet(character_dir, character_name)
+
+    # Copy contact sheet
+    contact_src = os.path.join(character_dir, "character_sheet.png")
+    contact_dst = os.path.join(output_dir, f"{character_name}_sheet.png")
+
+    if os.path.exists(contact_src):
+        shutil.copy2(contact_src, contact_dst)
+        print(f"✓ Portfolio sheet: {character_name}_sheet.png")
+
+    # Copy individual high-res views
+    for pose in ['front', 'back', 'side', 'quarter']:
+        src = os.path.join(character_dir, f"{pose}.png")
+        if os.path.exists(src):
+            dst = os.path.join(output_dir, f"{character_name}_{pose}.png")
+            shutil.copy2(src, dst)
+
+    # Create README
+    readme_path = os.path.join(output_dir, "README.txt")
+    with open(readme_path, 'w') as f:
+        f.write(f"Character: {character_name}\n")
+        f.write(f"Package includes:\n")
+        f.write(f"  - Full character sheet (2x2 grid)\n")
+        f.write(f"  - Individual pose views\n")
+        f.write(f"  - All views at original resolution\n")
+
+    print(f"\n✅ Portfolio package ready: {output_dir}/")
+
+# Usage
+export_for_portfolio("character_sheets/warrior")
+```
+
+### Practice Exercises
+
+**Exercise 1: Create Your First Character Sheet**
+```
+1. Design a character (warrior, mage, etc.)
+2. Write detailed prompt
+3. Generate complete character sheet
+4. Organize files properly
+```
+
+**Exercise 2: Create a Party**
+```
+Create character sheets for a 4-person party:
+- Tank (warrior/paladin)
+- DPS (rogue/ranger)
+- Healer (cleric)
+- Mage
+
+Use batch processing for efficiency
+```
+
+**Exercise 3: Export Pipeline**
+```
+Create full export pipeline:
+1. Generate character sheet
+2. Create contact sheet
+3. Add labels
+4. Export for game/portfolio
+5. Organize with metadata
+```
+
+### Key Takeaways
+
+✓ Use generate_all_poses for complete sheets
+✓ Organize outputs in character-specific folders
+✓ Create contact sheets for easy viewing
+✓ Add metadata for reference
+✓ Export in formats for different uses
+✓ Automate the entire pipeline
+
+**Continue to Tutorial 7 for smart file management!**
+
+---
+
+## Tutorial 7: Smart File Management
+
+**Time:** 25 minutes
+**Level:** Intermediate
+**Prerequisites:** Tutorials 1-6 completed
+
+### What You'll Learn
+- Avoid duplicate uploads with hash checking
+- Track and manage uploaded files
+- Implement efficient file reuse
+- Clean up unused files
+- Optimize storage usage
+
+### Part 1: Understanding File Deduplication
+
+**7.1 How deduplication works**
+```
+1. File uploaded → API calculates SHA256 hash
+2. Hash checked against database
+3. If hash exists → Return existing file_id
+4. If hash new → Store file and create new file_id
+
+Benefits:
+✓ Saves storage space
+✓ Faster "uploads" (file already exists)
+✓ Consistent file_ids for same content
+✓ Automatic reference counting
+```
+
+**7.2 Hash calculation**
+```python
+import hashlib
+
+def calculate_file_hash(file_path):
+    """Calculate SHA256 hash of a file."""
+    sha256_hash = hashlib.sha256()
+
+    with open(file_path, 'rb') as f:
+        # Read file in chunks (memory efficient)
+        for chunk in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(chunk)
+
+    return sha256_hash.hexdigest()
+
+# Usage
+file_hash = calculate_file_hash('pose.png')
+print(f"Hash: {file_hash}")
+```
+
+### Part 2: Smart Upload (Check Before Upload)
+
+**7.3 Basic smart upload**
+
+```python
+# smart_upload.py
+import hashlib
+import requests
+
+def smart_upload(file_path, upload_type='pose'):
+    """Upload only if file doesn't already exist."""
+
+    # Calculate hash
+    print(f"Checking file: {file_path}")
+    with open(file_path, 'rb') as f:
+        file_hash = hashlib.sha256(f.read()).hexdigest()
+
+    print(f"   Hash: {file_hash[:16]}...")
+
+    # Check if exists
+    check_response = requests.get(
+        f'http://localhost:8000/avatarforge-controller/files/hash/{file_hash}'
+    )
+    check_data = check_response.json()
+
+    if check_data['exists']:
+        print(f"   ✓ Already exists: {check_data['file_id']}")
+        print(f"   ⚡ Saved upload time!")
+        return check_data['file_id']
+
+    # Upload new file
+    print(f"   ⬆ Uploading new file...")
+
+    endpoint = (
+        'upload/pose_image' if upload_type == 'pose'
+        else 'upload/reference_image'
+    )
+
+    with open(file_path, 'rb') as f:
+        upload_response = requests.post(
+            f'http://localhost:8000/avatarforge-controller/{endpoint}',
+            files={'file': f}
+        )
+
+    upload_data = upload_response.json()
+    print(f"   ✓ Uploaded: {upload_data['file_id']}")
+
+    return upload_data['file_id']
+
+# Usage
+if __name__ == '__main__':
+    import sys
+
+    if len(sys.argv) < 2:
+        print("Usage: python smart_upload.py <file>")
+        sys.exit(1)
+
+    file_id = smart_upload(sys.argv[1])
+    print(f"\nFile ID: {file_id}")
+```
+
+**7.4 Use smart upload**
+```bash
+# First time - uploads
+python smart_upload.py pose1.png
+
+# Second time - reuses
+python smart_upload.py pose1.png  # Instant!
+```
+
+### Part 3: File Tracking System
+
+**7.5 Create file tracker**
+
+```python
+# file_tracker.py
+import json
+import os
+import hashlib
+import requests
+from datetime import datetime
+
+class FileTracker:
+    """Track uploaded files to avoid duplicates."""
+
+    def __init__(self, cache_file='file_cache.json'):
+        self.cache_file = cache_file
+        self.cache = self._load_cache()
+
+    def _load_cache(self):
+        """Load cache from file."""
+        if os.path.exists(self.cache_file):
+            with open(self.cache_file) as f:
+                return json.load(f)
+        return {}
+
+    def _save_cache(self):
+        """Save cache to file."""
+        with open(self.cache_file, 'w') as f:
+            json.dump(self.cache, f, indent=2)
+
+    def _calculate_hash(self, file_path):
+        """Calculate file hash."""
+        with open(file_path, 'rb') as f:
+            return hashlib.sha256(f.read()).hexdigest()
+
+    def upload_smart(self, file_path, upload_type='pose', tags=None):
+        """Upload with caching and tracking."""
+        abs_path = os.path.abspath(file_path)
+
+        # Check local cache first
+        file_hash = self._calculate_hash(abs_path)
+
+        if file_hash in self.cache:
+            cached = self.cache[file_hash]
+            print(f"✓ Found in cache: {cached['file_id']}")
+            print(f"  Originally uploaded: {cached['uploaded_at']}")
+            return cached['file_id']
+
+        # Check server
+        check_response = requests.get(
+            f'http://localhost:8000/avatarforge-controller/files/hash/{file_hash}'
+        )
+        check_data = check_response.json()
+
+        if check_data['exists']:
+            file_id = check_data['file_id']
+            print(f"✓ Found on server: {file_id}")
+
+            # Add to cache
+            self.cache[file_hash] = {
+                'file_id': file_id,
+                'file_path': abs_path,
+                'file_name': os.path.basename(abs_path),
+                'type': upload_type,
+                'tags': tags or [],
+                'uploaded_at': datetime.now().isoformat(),
+                'hash': file_hash
+            }
+            self._save_cache()
+
+            return file_id
+
+        # Upload new file
+        print(f"⬆ Uploading: {os.path.basename(abs_path)}")
+
+        endpoint = (
+            'upload/pose_image' if upload_type == 'pose'
+            else 'upload/reference_image'
+        )
+
+        with open(abs_path, 'rb') as f:
+            upload_response = requests.post(
+                f'http://localhost:8000/avatarforge-controller/{endpoint}',
+                files={'file': f}
+            )
+
+        upload_data = upload_response.json()
+        file_id = upload_data['file_id']
+
+        # Cache it
+        self.cache[file_hash] = {
+            'file_id': file_id,
+            'file_path': abs_path,
+            'file_name': os.path.basename(abs_path),
+            'type': upload_type,
+            'tags': tags or [],
+            'uploaded_at': datetime.now().isoformat(),
+            'hash': file_hash,
+            'size': upload_data['size'],
+            'mime_type': upload_data['mime_type']
+        }
+        self._save_cache()
+
+        print(f"✓ Uploaded: {file_id}")
+        return file_id
+
+    def list_cached(self, type_filter=None):
+        """List all cached files."""
+        print("\nCached Files:")
+        print("=" * 70)
+
+        for file_hash, data in self.cache.items():
+            if type_filter and data['type'] != type_filter:
+                continue
+
+            print(f"\nFile: {data['file_name']}")
+            print(f"  ID: {data['file_id']}")
+            print(f"  Type: {data['type']}")
+            print(f"  Path: {data['file_path']}")
+            print(f"  Hash: {file_hash[:16]}...")
+            print(f"  Uploaded: {data['uploaded_at']}")
+
+            if data.get('tags'):
+                print(f"  Tags: {', '.join(data['tags'])}")
+
+    def find_by_tags(self, tags):
+        """Find files by tags."""
+        results = []
+
+        for file_hash, data in self.cache.items():
+            file_tags = set(data.get('tags', []))
+            if set(tags).intersection(file_tags):
+                results.append(data)
+
+        return results
+
+    def clear_cache(self):
+        """Clear the cache."""
+        self.cache = {}
+        self._save_cache()
+        print("✓ Cache cleared")
+
+# Usage
+if __name__ == '__main__':
+    tracker = FileTracker()
+
+    # Upload with tags
+    file_id1 = tracker.upload_smart('warrior_pose.png', tags=['warrior', 'pose', 'combat'])
+    file_id2 = tracker.upload_smart('mage_pose.png', tags=['mage', 'pose', 'casting'])
+
+    # List all
+    tracker.list_cached()
+
+    # Find by tags
+    combat_files = tracker.find_by_tags(['combat'])
+    print(f"\nFound {len(combat_files)} combat-related files")
+```
+
+**7.6 Use file tracker**
+```bash
+python file_tracker.py
+
+# Creates file_cache.json with all uploads
+# Reuses file_ids automatically
+```
+
+### Part 4: Batch Upload with Deduplication
+
+**7.7 Smart batch upload**
+
+```python
+# batch_upload_smart.py
+import os
+import hashlib
+import requests
+from pathlib import Path
+
+def find_duplicate_files(directory):
+    """Find local duplicates before uploading."""
+    file_hashes = {}
+    duplicates = []
+
+    print(f"Scanning {directory} for duplicates...")
+
+    # Find all images
+    image_extensions = ['.png', '.jpg', '.jpeg', '.webp']
+    image_files = []
+
+    for ext in image_extensions:
+        image_files.extend(Path(directory).rglob(f'*{ext}'))
+
+    # Calculate hashes
+    for file_path in image_files:
+        with open(file_path, 'rb') as f:
+            file_hash = hashlib.sha256(f.read()).hexdigest()
+
+        if file_hash in file_hashes:
+            duplicates.append({
+                'original': file_hashes[file_hash],
+                'duplicate': str(file_path)
+            })
+        else:
+            file_hashes[file_hash] = str(file_path)
+
+    print(f"Found {len(file_hashes)} unique files")
+    print(f"Found {len(duplicates)} local duplicates")
+
+    return file_hashes, duplicates
+
+def batch_upload_unique(directory, upload_type='pose'):
+    """Upload only unique files from directory."""
+    unique_files, duplicates = find_duplicate_files(directory)
+
+    # Report duplicates
+    if duplicates:
+        print("\nLocal duplicates found:")
+        for dup in duplicates:
+            print(f"  {dup['duplicate']}")
+            print(f"    → Same as {dup['original']}")
+
+    # Upload unique files
+    print(f"\n⬆ Uploading {len(unique_files)} unique files...\n")
+
+    uploaded = {}
+    skipped = 0
+
+    for file_hash, file_path in unique_files.items():
+        # Check server
+        check_response = requests.get(
+            f'http://localhost:8000/avatarforge-controller/files/hash/{file_hash}'
+        )
+
+        if check_response.json().get('exists'):
+            file_id = check_response.json()['file_id']
+            print(f"⚡ {os.path.basename(file_path)}: already on server")
+            uploaded[file_path] = file_id
+            skipped += 1
+            continue
+
+        # Upload
+        endpoint = (
+            'upload/pose_image' if upload_type == 'pose'
+            else 'upload/reference_image'
+        )
+
+        with open(file_path, 'rb') as f:
+            upload_response = requests.post(
+                f'http://localhost:8000/avatarforge-controller/{endpoint}',
+                files={'file': f}
+            )
+
+        file_id = upload_response.json()['file_id']
+        print(f"✓ {os.path.basename(file_path)}: {file_id}")
+        uploaded[file_path] = file_id
+
+    print(f"\n✅ Upload complete:")
+    print(f"   Total unique: {len(unique_files)}")
+    print(f"   Actually uploaded: {len(uploaded) - skipped}")
+    print(f"   Skipped (on server): {skipped}")
+    print(f"   Local duplicates avoided: {len(duplicates)}")
+
+    return uploaded
+
+# Usage
+if __name__ == '__main__':
+    import sys
+
+    if len(sys.argv) < 2:
+        print("Usage: python batch_upload_smart.py <directory>")
+        sys.exit(1)
+
+    directory = sys.argv[1]
+    batch_upload_unique(directory)
+```
+
+**7.8 Use smart batch upload**
+```bash
+python batch_upload_smart.py ./my_poses/
+
+# Finds duplicates locally
+# Checks server before uploading
+# Only uploads truly new files
+```
+
+### Part 5: File Cleanup
+
+**7.9 Clean up unused files**
+
+```python
+# cleanup_files.py
+import requests
+from datetime import datetime, timedelta
+
+def list_all_files():
+    """List all uploaded files."""
+    # Note: This would need a list files endpoint
+    # For now, we'll track via generations
+
+    response = requests.get(
+        'http://localhost:8000/avatarforge-controller/generations?limit=1000'
+    )
+
+    all_gens = response.json()['generations']
+
+    # Collect file IDs
+    file_ids = set()
+
+    for gen in all_gens:
+        if gen.get('pose_file_id'):
+            file_ids.add(gen['pose_file_id'])
+        if gen.get('reference_file_id'):
+            file_ids.add(gen['reference_file_id'])
+
+    return file_ids
+
+def delete_unused_files(dry_run=True):
+    """Delete files not referenced by any generation."""
+    print("🗑️ Cleanup mode:", "DRY RUN" if dry_run else "LIVE")
+
+    # This is a conceptual example
+    # Actual implementation depends on API having list_files endpoint
+
+    print("\nNote: Server handles automatic cleanup via reference counting")
+    print("Files are automatically cleaned when:")
+    print("  - Reference count reaches 0")
+    print("  - File marked as deleted")
+    print("  - Cleanup job runs (scheduled)")
+
+# Usage
+if __name__ == '__main__':
+    delete_unused_files(dry_run=True)
+```
+
+### Part 6: Storage Optimization
+
+**7.10 Storage usage report**
+
+```python
+# storage_report.py
+import os
+import requests
+
+def analyze_storage():
+    """Analyze storage usage."""
+    print("📊 Storage Analysis\n")
+
+    # Get all generations
+    response = requests.get(
+        'http://localhost:8000/avatarforge-controller/generations?limit=1000'
+    )
+
+    generations = response.json()['generations']
+
+    total_outputs = 0
+    total_size_estimate = 0
+
+    for gen in generations:
+        if gen.get('output_files'):
+            for output in gen['output_files']:
+                total_outputs += 1
+                # Estimate 2MB per output (adjust based on your settings)
+                total_size_estimate += 2
+
+    print(f"Generations: {len(generations)}")
+    print(f"Output files: {total_outputs}")
+    print(f"Estimated size: {total_size_estimate} MB ({total_size_estimate/1024:.1f} GB)")
+
+    # Check actual storage directory
+    storage_path = './storage'
+    if os.path.exists(storage_path):
+        total_size = 0
+        file_count = 0
+
+        for dirpath, dirnames, filenames in os.walk(storage_path):
+            for filename in filenames:
+                filepath = os.path.join(dirpath, filename)
+                total_size += os.path.getsize(filepath)
+                file_count += 1
+
+        print(f"\nActual storage:")
+        print(f"  Files: {file_count}")
+        print(f"  Size: {total_size/1024/1024:.1f} MB ({total_size/1024/1024/1024:.2f} GB)")
+
+# Usage
+analyze_storage()
+```
+
+### Part 7: Best Practices
+
+**7.11 File management checklist**
+
+```python
+# best_practices.py
+
+"""
+File Management Best Practices:
+
+1. ALWAYS use hash checking before upload
+   ✓ Use smart_upload() instead of direct upload
+   ✓ Saves bandwidth and time
+   ✓ Prevents duplicate storage
+
+2. Track your files
+   ✓ Use FileTracker for organization
+   ✓ Tag files appropriately
+   ✓ Keep local cache
+
+3. Organize locally
+   ✓ Group by project/character
+   ✓ Use meaningful names
+   ✓ Keep originals separate from generated
+
+4. Clean up regularly
+   ✓ Delete old generations
+   ✓ Remove unused references
+   ✓ Run cleanup scripts
+
+5. Monitor storage
+   ✓ Check usage periodically
+   ✓ Archive old projects
+   ✓ Optimize file sizes before upload
+"""
+
+def good_workflow_example():
+    """Example of good file management workflow."""
+    tracker = FileTracker()
+
+    # 1. Upload poses for character
+    warrior_poses = {
+        'standing': tracker.upload_smart('poses/warrior_standing.png',
+                                         tags=['warrior', 'standing']),
+        'combat': tracker.upload_smart('poses/warrior_combat.png',
+                                       tags=['warrior', 'combat'])
+    }
+
+    # 2. Upload reference images
+    warrior_refs = {
+        'armor': tracker.upload_smart('refs/blue_armor.jpg',
+                                     upload_type='reference',
+                                     tags=['warrior', 'armor', 'blue'])
+    }
+
+    # 3. Generate with tracked files
+    response = requests.post(
+        'http://localhost:8000/avatarforge-controller/generate/avatar',
+        json={
+            "prompt": "warrior character, blue armor",
+            "pose_file_id": warrior_poses['standing'],
+            "reference_file_id": warrior_refs['armor']
+        }
+    )
+
+    # 4. Track generation
+    generation_id = response.json()['generation_id']
+
+    print("✅ Workflow complete!")
+    print(f"   Files tracked and reusable")
+    print(f"   Generation: {generation_id}")
+
+    return generation_id
+```
+
+### Practice Exercises
+
+**Exercise 1: Build Your File Tracker**
+```
+1. Create FileTracker instance
+2. Upload 5 different pose images with tags
+3. Try uploading same images again (should skip)
+4. List all cached files
+5. Find files by specific tags
+```
+
+**Exercise 2: Optimize Batch Upload**
+```
+1. Collect 10-20 pose images in folder
+2. Use smart batch upload
+3. Check how many were deduplicated
+4. Calculate time/bandwidth saved
+```
+
+**Exercise 3: Storage Analysis**
+```
+1. Run storage analysis
+2. Identify largest files
+3. Find duplicate files
+4. Clean up old generations
+5. Measure storage reduction
+```
+
+### Key Takeaways
+
+✓ Always check hash before uploading
+✓ Use caching to avoid redundant API calls
+✓ Track files with tags for organization
+✓ Batch operations save time
+✓ Regular cleanup prevents bloat
+✓ Monitor storage usage
+✓ Automate file management workflows
+
+**Continue to Tutorial 8 for web interface!**
+
+---
+
+**Last Updated:** 2025-01-15
+**Tutorials Completed:** 7/12
