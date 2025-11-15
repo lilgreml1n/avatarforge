@@ -106,8 +106,8 @@ echo -e "${YELLOW}[1/3] Downloading RealESRGAN 4x+ (64 MB)...${NC}"
 if [ -f "models/upscale_models/RealESRGAN_x4plus.pth" ]; then
     echo -e "${GREEN}✓ Already exists, skipping${NC}"
 else
-    wget -c -P models/upscale_models \
-        https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x4plus.pth
+    curl -L -C - -o models/upscale_models/RealESRGAN_x4plus.pth \
+        "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth"
     echo -e "${GREEN}✓ Downloaded${NC}"
 fi
 
