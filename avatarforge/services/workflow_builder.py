@@ -109,6 +109,16 @@ def build_workflow(request) -> Dict[str, Any]:
     if hasattr(request, 'style') and request.style:
         enhanced_prompt = f"{enhanced_prompt}, {request.style} art style"
 
+    # Add photorealism enhancements to prompt
+    if hasattr(request, 'realism') and request.realism:
+        # Add quality tags for stunning photorealistic results
+        enhanced_prompt = (
+            f"{enhanced_prompt}, "
+            "detailed skin texture, natural pores, realistic lighting, "
+            "professional photography, sharp focus, 8k uhd, high quality, "
+            "natural colors, soft shadows, realistic depth of field"
+        )
+
     workflow["prompt"][str(node_id)] = {
         "inputs": {
             "text": enhanced_prompt,
@@ -120,9 +130,21 @@ def build_workflow(request) -> Dict[str, Any]:
     node_id += 1
 
     # 2. Negative Prompt Node
+    # Enhanced negative prompt for photorealism (avoid plastic AI look)
+    if hasattr(request, 'realism') and request.realism:
+        negative_text = (
+            "plastic, doll, fake, mannequin, smooth skin, oversharpened, "
+            "artificial, synthetic, airbrushed, waxy skin, porcelain skin, "
+            "bad quality, blurry, distorted, deformed, disfigured, "
+            "unrealistic lighting, oversaturated, cartoon, anime, "
+            "nsfw, nude"
+        )
+    else:
+        negative_text = "nsfw, nude, bad quality, blurry, distorted"
+
     workflow["prompt"][str(node_id)] = {
         "inputs": {
-            "text": "nsfw, nude, bad quality, blurry, distorted",
+            "text": negative_text,
             "clip": ["4", 1]  # Reference to CLIP model loader (will be node 4)
         },
         "class_type": "CLIPTextEncode"
@@ -161,9 +183,16 @@ def build_workflow(request) -> Dict[str, Any]:
     node_id += 1
 
     # 4. Checkpoint Loader (model selector based on realism)
-    # Note: Using v1-5-pruned-emaonly.safetensors as default model
-    # TODO: Add realistic_model.safetensors and anime_model.safetensors to ComfyUI models directory
-    model_name = "v1-5-pruned-emaonly.safetensors"  # Use available model for now
+    # Select model based on realism setting
+    if hasattr(request, 'realism') and request.realism:
+        # Photorealistic models - stunning, lifelike results
+        model_name = getattr(request, 'checkpoint', "RealVisXL_V5.0.safetensors")
+        # Fallbacks: JuggernautXL_v10.safetensors, NightVisionXL_v0931.safetensors
+    else:
+        # Anime/stylized models
+        model_name = getattr(request, 'checkpoint', "JuggernautXL_v10.safetensors")
+        # Fallback: v1-5-pruned-emaonly.safetensors (if SDXL models not available)
+
     workflow["prompt"][str(node_id)] = {
         "inputs": {
             "ckpt_name": model_name
@@ -176,9 +205,17 @@ def build_workflow(request) -> Dict[str, Any]:
     # 5. KSampler (main generation node)
     import random
     # Support custom quality parameters
-    steps = getattr(request, 'steps', 20)
-    cfg = getattr(request, 'cfg', 7.0)
-    sampler_name = getattr(request, 'sampler_name', 'euler')
+    # Use better defaults for photorealism
+    if hasattr(request, 'realism') and request.realism:
+        steps = getattr(request, 'steps', 30)  # Higher steps for photorealism
+        cfg = getattr(request, 'cfg', 7.0)
+        sampler_name = getattr(request, 'sampler_name', 'dpmpp_2m_sde_gpu')  # Best for photorealism
+        scheduler = getattr(request, 'scheduler', 'karras')  # Better quality
+    else:
+        steps = getattr(request, 'steps', 20)
+        cfg = getattr(request, 'cfg', 7.0)
+        sampler_name = getattr(request, 'sampler_name', 'euler')
+        scheduler = 'normal'
 
     workflow["prompt"][str(node_id)] = {
         "inputs": {
@@ -186,7 +223,7 @@ def build_workflow(request) -> Dict[str, Any]:
             "steps": steps,
             "cfg": cfg,
             "sampler_name": sampler_name,
-            "scheduler": "normal",
+            "scheduler": scheduler,
             "denoise": 1.0,
             "model": [checkpoint_node, 0],  # From checkpoint loader
             "positive": [positive_prompt_node, 0],
@@ -209,11 +246,67 @@ def build_workflow(request) -> Dict[str, Any]:
     decode_node = str(node_id)
     node_id += 1
 
-    # 7. Save Image
+    # 7. Upscale to 4K (if enabled)
+    upscale_enabled = getattr(request, 'upscale', True)  # Default to enabled for quality
+    upscale_model = getattr(request, 'upscale_model', 'RealESRGAN_x4plus.pth')
+
+    if upscale_enabled:
+        # 7a. Load Upscale Model
+        workflow["prompt"][str(node_id)] = {
+            "inputs": {
+                "model_name": upscale_model
+            },
+            "class_type": "UpscaleModelLoader"
+        }
+        upscale_model_node = str(node_id)
+        node_id += 1
+
+        # 7b. Image Upscale with Model (4x)
+        workflow["prompt"][str(node_id)] = {
+            "inputs": {
+                "upscale_model": [upscale_model_node, 0],
+                "image": [decode_node, 0]
+            },
+            "class_type": "ImageUpscaleWithModel"
+        }
+        upscaled_image_node = str(node_id)
+        node_id += 1
+
+        # Optional: Secondary upscaler for extra sharpness
+        use_secondary_upscaler = getattr(request, 'use_secondary_upscaler', False)
+        if use_secondary_upscaler:
+            secondary_upscale_model = getattr(request, 'secondary_upscale_model', '4x-UltraSharp.pth')
+
+            # Load second upscaler
+            workflow["prompt"][str(node_id)] = {
+                "inputs": {
+                    "model_name": secondary_upscale_model
+                },
+                "class_type": "UpscaleModelLoader"
+            }
+            upscale_model_2_node = str(node_id)
+            node_id += 1
+
+            # Apply second upscaler
+            workflow["prompt"][str(node_id)] = {
+                "inputs": {
+                    "upscale_model": [upscale_model_2_node, 0],
+                    "image": [upscaled_image_node, 0]
+                },
+                "class_type": "ImageUpscaleWithModel"
+            }
+            upscaled_image_node = str(node_id)
+            node_id += 1
+
+        final_image_node = upscaled_image_node
+    else:
+        final_image_node = decode_node
+
+    # 8. Save Image
     workflow["prompt"][str(node_id)] = {
         "inputs": {
             "filename_prefix": "avatarforge",
-            "images": [decode_node, 0]
+            "images": [final_image_node, 0]
         },
         "class_type": "SaveImage"
     }

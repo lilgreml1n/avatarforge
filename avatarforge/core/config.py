@@ -71,6 +71,56 @@ class Settings(BaseSettings):
         description="ComfyUI API base URL"
     )
 
+    # Model Configuration (SDXL Checkpoints)
+    DEFAULT_CHECKPOINT: str = Field(
+        default="RealVisXL_V5.0.safetensors",
+        description="Default checkpoint model for generation"
+    )
+    REALISTIC_CHECKPOINT: str = Field(
+        default="RealVisXL_V5.0.safetensors",
+        description="Checkpoint for photorealistic generation (realism=true)"
+    )
+    ANIME_CHECKPOINT: str = Field(
+        default="JuggernautXL_v10.safetensors",
+        description="Checkpoint for anime/stylized generation (realism=false)"
+    )
+
+    # Upscaler Configuration
+    PRIMARY_UPSCALER: str = Field(
+        default="RealESRGAN_x4plus.pth",
+        description="Primary upscaler model for 4K generation"
+    )
+    SECONDARY_UPSCALER: str = Field(
+        default="4x-UltraSharp.pth",
+        description="Secondary upscaler for extra sharpness (optional)"
+    )
+    ENABLE_UPSCALING: bool = Field(
+        default=True,
+        description="Enable 4K upscaling by default"
+    )
+
+    # Quality Settings for Photorealism
+    DEFAULT_STEPS: int = Field(
+        default=30,
+        description="Default number of sampling steps"
+    )
+    REALISTIC_STEPS: int = Field(
+        default=35,
+        description="Steps for photorealistic generation (higher = better quality)"
+    )
+    DEFAULT_CFG: float = Field(
+        default=7.0,
+        description="Default CFG scale (guidance strength)"
+    )
+    DEFAULT_SAMPLER: str = Field(
+        default="dpmpp_2m_sde_gpu",
+        description="Default sampler for generation"
+    )
+    DEFAULT_SCHEDULER: str = Field(
+        default="karras",
+        description="Default scheduler for generation"
+    )
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
 
