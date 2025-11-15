@@ -30,7 +30,7 @@ def test_api_health_endpoint(client):
 
 def test_openapi_docs(client):
     """Test OpenAPI documentation is accessible"""
-    response = client.get("/api/openapi.json")
+    response = client.get("/openapi.json")
     assert response.status_code == 200
     data = response.json()
     assert "openapi" in data

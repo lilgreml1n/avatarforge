@@ -1,5 +1,5 @@
 """AvatarForge request and response schemas"""
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
@@ -91,7 +91,7 @@ class OutputFile(BaseModel):
     url: str = Field(..., description="URL to download the file")
     pose_type: Optional[str] = Field(None, description="Pose type if applicable: 'front', 'back', 'side', 'quarter'")
     size: int = Field(..., description="File size in bytes")
-    dimensions: Optional[Dict[str, int]] = Field(None, description="Image dimensions", example={"width": 512, "height": 512})
+    dimensions: Optional[Dict[str, int]] = Field(None, description="Image dimensions", json_schema_extra={"example": {"width": 512, "height": 512}})
 
 
 class AvatarResponse(BaseModel):
@@ -107,8 +107,7 @@ class AvatarResponse(BaseModel):
     error: Optional[str] = Field(None, description="Error message if status='failed'")
     comfyui_prompt_id: Optional[str] = Field(None, description="ComfyUI's internal prompt ID")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class GenerationListResponse(BaseModel):

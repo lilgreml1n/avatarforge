@@ -25,11 +25,13 @@ from ..schemas.avatarforge_schema import (
 from ..schemas.file_schema import (
     FileUploadResponse,
     FileInfo,
-    FileHashCheckResponse
+    FileHashCheckResponse,
+    CleanupResponse
 )
 from ..services.file_service import FileService
 from ..services.generation_service import GenerationService
 from ..database.session import get_db
+from ..models.generation import Generation
 
 router = APIRouter()
 
@@ -583,7 +585,6 @@ async def list_generations(
     # Get total count
     total_query = db.query(Generation)
     if status:
-        from ..models.generation import Generation
         total_query = total_query.filter(Generation.status == status)
     total = total_query.count()
 
@@ -711,3 +712,54 @@ async def list_poses():
             }
         ]
     }
+
+
+@router.post(
+    "/cleanup/orphaned-files",
+    response_model=CleanupResponse,
+    summary="Cleanup Orphaned Files",
+    description="""
+    Manually trigger cleanup of orphaned files.
+
+    **What gets deleted:**
+    - Files with reference_count = 0 (not used by any generation)
+    - Files not accessed in X days (configured in FILE_CLEANUP_DAYS)
+    - Files not already marked as deleted
+
+    **This operation:**
+    - Permanently deletes files from disk
+    - Removes database records
+    - Cannot be undone
+
+    **Note:** Automated cleanup runs daily at the configured hour if ENABLE_SCHEDULER is True.
+
+    **Query Parameters:**
+    - `days` (optional): Override the default cleanup threshold (default: from FILE_CLEANUP_DAYS config)
+
+    **Returns:**
+    Summary of cleanup operation with number of files deleted.
+    """,
+    tags=["Maintenance"]
+)
+async def cleanup_orphaned_files(
+    days: int = Query(None, ge=1, le=365, description="Delete files older than this many days (overrides config)"),
+    db: Session = Depends(get_db)
+) -> CleanupResponse:
+    """
+    Manually trigger cleanup of orphaned files
+
+    This endpoint allows administrators to manually run the cleanup job
+    that normally runs on a schedule. Use with caution as deletions are permanent.
+    """
+    from ..core.config import settings
+
+    file_service = FileService(db)
+    cleanup_days = days if days is not None else settings.FILE_CLEANUP_DAYS
+
+    files_deleted = file_service.cleanup_orphaned_files(days=cleanup_days)
+
+    return CleanupResponse(
+        files_deleted=files_deleted,
+        cleanup_days=cleanup_days,
+        message=f"Cleanup complete. Deleted {files_deleted} orphaned file(s) older than {cleanup_days} days."
+    )

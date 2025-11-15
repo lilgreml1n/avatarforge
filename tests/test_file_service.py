@@ -4,7 +4,7 @@ import hashlib
 import io
 from pathlib import Path
 from datetime import datetime
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from fastapi import UploadFile, HTTPException
 from PIL import Image
 
@@ -52,7 +52,7 @@ def mock_upload_file(sample_image):
     upload_file = Mock(spec=UploadFile)
     upload_file.filename = "test_image.png"
     upload_file.content_type = "image/png"
-    upload_file.read = Mock(return_value=sample_image)
+    upload_file.read = AsyncMock(return_value=sample_image)
     return upload_file
 
 
@@ -122,7 +122,7 @@ class TestFileService:
         """Test uploading invalid file type raises error"""
         invalid_file = Mock(spec=UploadFile)
         invalid_file.content_type = "text/plain"
-        invalid_file.read = Mock(return_value=b"not an image")
+        invalid_file.read = AsyncMock(return_value=b"not an image")
 
         with pytest.raises(HTTPException) as exc_info:
             await file_service.upload_file(invalid_file)
@@ -135,7 +135,7 @@ class TestFileService:
         """Test uploading file that's too large raises error"""
         large_file = Mock(spec=UploadFile)
         large_file.content_type = "image/png"
-        large_file.read = Mock(return_value=b"x" * (file_service.MAX_FILE_SIZE + 1))
+        large_file.read = AsyncMock(return_value=b"x" * (file_service.MAX_FILE_SIZE + 1))
 
         with pytest.raises(HTTPException) as exc_info:
             await file_service.upload_file(large_file)
@@ -146,6 +146,9 @@ class TestFileService:
     @pytest.mark.asyncio
     async def test_upload_file_dimensions_too_large(self, file_service, mock_db):
         """Test uploading image with dimensions too large"""
+        # Setup mock - no existing file
+        mock_db.query.return_value.filter.return_value.first.return_value = None
+
         # Create oversized image
         large_img = Image.new('RGB', (5000, 5000), color='blue')
         img_bytes = io.BytesIO()
@@ -155,7 +158,7 @@ class TestFileService:
         large_upload = Mock(spec=UploadFile)
         large_upload.filename = "large.png"
         large_upload.content_type = "image/png"
-        large_upload.read = Mock(return_value=img_bytes.getvalue())
+        large_upload.read = AsyncMock(return_value=img_bytes.getvalue())
 
         with pytest.raises(HTTPException) as exc_info:
             await file_service.upload_file(large_upload)
@@ -235,28 +238,31 @@ class TestFileService:
         mock_file.is_deleted = False
         mock_db.query.return_value.filter.return_value.first.return_value = mock_file
 
-        # Force soft delete
-        with pytest.raises(HTTPException):
-            result = file_service.delete_file("test-id", force=True)
+        # Force soft delete (force=True with references > 0)
+        result = file_service.delete_file("test-id", force=True)
 
-        # Would set is_deleted = True in real implementation
+        # Verify it was soft deleted
+        assert result == True
+        assert mock_file.is_deleted == True
+        mock_db.commit.assert_called_once()
 
     def test_delete_file_hard_delete(self, file_service, mock_db, tmp_path):
         """Test hard delete when no references"""
-        # Create a test file
-        test_file = tmp_path / "test_file.png"
+        # Create a test file in the uploads directory
+        test_file = file_service.uploads_dir / "test_file.png"
         test_file.write_bytes(b"test")
 
         mock_file = Mock()
         mock_file.reference_count = 0
-        mock_file.storage_path = str(test_file.relative_to(file_service.uploads_dir))
+        mock_file.storage_path = "test_file.png"
         mock_db.query.return_value.filter.return_value.first.return_value = mock_file
 
-        with patch.object(file_service, 'get_file_path', return_value=test_file):
-            result = file_service.delete_file("test-id", force=True)
+        result = file_service.delete_file("test-id", force=True)
 
         assert result == True
+        assert not test_file.exists()  # File should be deleted from disk
         mock_db.delete.assert_called_once_with(mock_file)
+        mock_db.commit.assert_called_once()
 
     def test_calculate_file_hash(self, file_service, tmp_path):
         """Test file hash calculation"""

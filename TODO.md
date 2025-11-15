@@ -1,70 +1,55 @@
 # AvatarForge TODO List
 
-Last updated: 2025-01-09
+Last updated: 2025-01-15
 
 ## 🚨 Critical - Must Do Before Production
 
-### 1. Database Initialization
-- [ ] Run database initialization script
-  ```bash
-  python -m avatarforge.database.init_db
-  ```
-- [ ] Verify tables created: `uploaded_files`, `generations`
-- [ ] Create `.env` file from `.env.example`
-- [ ] Set proper `SECRET_KEY` in `.env` (not the default!)
+### 1. Database Initialization ✅ COMPLETED
+- [x] Run database initialization script
+- [x] Verify tables created: `uploaded_files`, `generations`
+- [x] Create `.env` file from `.env.example`
+- [x] Set proper `SECRET_KEY` in `.env`
 
-### 2. Fix Failing Unit Tests
-- [ ] Fix async mock setup in `test_file_service.py`
-  - Update `mock_upload_file.read()` to use `AsyncMock`
-  - 6 tests currently failing due to this
-- [ ] Fix path mocking in `test_delete_file_hard_delete`
-- [ ] Run all tests and ensure they pass:
-  ```bash
-  uv run pytest tests/ -v
-  ```
+### 2. Fix Failing Unit Tests ✅ COMPLETED
+- [x] Fixed async mock setup in `test_file_service.py`
+- [x] Fixed path mocking in `test_delete_file_hard_delete`
+- [x] All 78/78 tests passing with 87% code coverage
 
-### 3. Storage Directory Setup
-- [ ] Create storage directories:
-  ```bash
-  mkdir -p storage/uploads/poses
-  mkdir -p storage/uploads/references
-  mkdir -p storage/outputs
-  ```
-- [ ] Set proper permissions (if on Linux/Mac)
-- [ ] Update `STORAGE_PATH` in `.env` if needed
+### 3. Storage Directory Setup ✅ COMPLETED
+- [x] Created storage initialization script (`scripts/init_storage.py`)
+- [x] Storage directories created automatically
+- [x] Proper permissions set
 
 ---
 
 ## 🔧 High Priority - Core Functionality
 
-### 4. ComfyUI Integration
-- [ ] Verify ComfyUI is running on `http://localhost:8188`
-- [ ] Test `/health` endpoint - should show ComfyUI status
-- [ ] Update `COMFYUI_URL` in `.env` if different
-- [ ] Test actual avatar generation end-to-end
-- [ ] Handle ComfyUI webhook callbacks for status updates
-- [ ] Implement polling mechanism for generation status
+### 4. ComfyUI Integration ✅ COMPLETED
+- [x] Verified ComfyUI is running on `http://localhost:8188`
+- [x] Tested `/health` endpoint - ComfyUI status working
+- [x] COMFYUI_URL configured in `.env`
+- [x] Tested actual avatar generation end-to-end (successful!)
+- [ ] Handle ComfyUI webhook callbacks for status updates (TODO)
+- [ ] Implement polling mechanism for generation status (TODO)
 
-### 5. Workflow Builder Enhancement
-- [ ] Update model file paths in `workflow_builder.py`:
-  - Line 178: `realistic_model.safetensors` → actual model name
-  - Line 178: `anime_model.safetensors` → actual model name
-  - Lines 243-266: Update pose-specific model paths
-- [ ] Test workflow generation with real ComfyUI
-- [ ] Add error handling for missing models
-- [ ] Validate workflow JSON structure
+### 5. Workflow Builder Enhancement ✅ MOSTLY COMPLETED
+- [x] Updated model paths to use `v1-5-pruned-emaonly.safetensors`
+- [x] Updated pose-specific workflows to use prompt engineering
+- [x] Tested workflow generation with real ComfyUI
+- [x] Fixed workflow node ordering bug
+- [x] Fixed seed generation (changed from -1 to random)
+- [ ] Add error handling for missing models (TODO)
+- [ ] Validate workflow JSON structure (TODO)
+- [ ] Add support for image-to-image (requires workflow restructuring)
 
-### 6. File Management Improvements
-- [ ] Test file upload with real images
-- [ ] Test deduplication (upload same file twice)
-- [ ] Verify file deletion works correctly
-- [ ] Implement automatic cleanup job:
-  ```python
-  # Run daily to clean orphaned files
-  file_service.cleanup_orphaned_files(days=30)
-  ```
-- [ ] Add file size limits validation
-- [ ] Add MIME type validation (currently allows PNG, JPG, WEBP)
+### 6. File Management Improvements ✅ MOSTLY COMPLETED
+- [ ] Test file upload with real images (TODO)
+- [ ] Test deduplication (upload same file twice) (TODO)
+- [ ] Verify file deletion works correctly (TODO - manual testing)
+- [x] Implemented automatic cleanup job with APScheduler
+- [x] Manual cleanup endpoint: `POST /cleanup/orphaned-files`
+- [x] File size limits validation (50MB max)
+- [x] MIME type validation (PNG, JPG, WEBP)
 
 ---
 
@@ -158,7 +143,76 @@ Last updated: 2025-01-09
 
 ## 💡 Feature Additions
 
-### 16. Advanced File Management
+### 16. Advanced Multi-View Avatar Generation System
+**Goal:** Implement sophisticated avatar generation with identity consistency across multiple views
+
+#### Phase 1: Enhanced Schema & Prompt Engineering (Quick Win)
+- [ ] Create `AdvancedAvatarRequest` schema with rich input structure:
+  - `base_image`: Optional input photo for img2img
+  - `style`: Style selection (photorealistic, anime, etc.)
+  - `model`: AI model selector (qwen3-image-edit, etc.)
+  - `views`: List of view angles with descriptions
+  - `clothing`: Structured clothing data (base, overlay, accessories)
+  - `realism`: Detailed realism settings (lighting, skin, camera)
+  - `output_resolution`: Configurable output size
+  - `ensure_consistency`: Identity preservation toggle
+- [ ] Create supporting schemas:
+  - `ViewRequest`: angle + description for each view
+  - `ClothingRequest`: base_outfit + overlay_item + accessories list
+  - `RealismSettings`: lighting, skin, clothing, camera details
+- [ ] Update `build_workflow()` to use enhanced prompt details
+- [ ] Add clothing and accessories to prompt construction
+- [ ] Add realism modifiers (lighting, skin texture, camera effects)
+- [ ] Test multi-view generation via enhanced prompt engineering
+
+#### Phase 2: ComfyUI Advanced Models Setup
+- [ ] Research and document required ComfyUI models:
+  - IP-Adapter or InstantID for identity preservation
+  - ControlNet models for pose control
+  - PhotoMaker or similar for face consistency
+  - Qwen3-image-edit or equivalent advanced models
+- [ ] Install IP-Adapter custom nodes and models
+- [ ] Install ControlNet models:
+  - OpenPose for pose detection/control
+  - Depth for 3D consistency
+  - Canny for edge-guided generation
+- [ ] Test each model individually with ComfyUI
+- [ ] Document model paths and configuration
+
+#### Phase 3: Multi-View Workflow Builder
+- [ ] Create `build_advanced_workflow()` function
+- [ ] Implement identity extraction from base_image
+- [ ] Add IP-Adapter nodes for identity conditioning
+- [ ] Add ControlNet nodes for pose control
+- [ ] Build view-specific workflow generation
+- [ ] Implement multi-workflow orchestration
+- [ ] Add consistency verification between views
+
+#### Phase 4: API Integration
+- [ ] Add new endpoint: `POST /avatarforge-controller/generate/advanced`
+- [ ] Support backward compatibility with existing endpoints
+- [ ] Add graceful degradation (use simple workflow if models unavailable)
+- [ ] Implement batch processing for multiple views
+- [ ] Add progress tracking for multi-view generation
+- [ ] Create response schema for multi-view results
+
+#### Phase 5: Testing & Refinement
+- [ ] Create test suite for advanced generation
+- [ ] Test identity consistency across views
+- [ ] Test clothing consistency across angles
+- [ ] Test with different realism settings
+- [ ] Performance testing (multi-view generation time)
+- [ ] Add error handling for missing models
+
+#### Optional Enhancements:
+- [ ] Add view angle auto-detection from base_image
+- [ ] Implement view interpolation (generate intermediate angles)
+- [ ] Add 3D pose estimation for better consistency
+- [ ] Support custom ControlNet poses
+- [ ] Add style transfer between views
+- [ ] Implement background consistency across views
+
+### 17. Advanced File Management
 - [ ] Add file versioning
 - [ ] Add file tagging/categories
 - [ ] Add file search by metadata
@@ -187,12 +241,14 @@ Last updated: 2025-01-09
 ## 🐛 Known Issues
 
 ### Issues to Fix:
-1. **Test failures** - 6 tests failing due to async mocks
-2. **Workflow builder** - Using placeholder model names
-3. **ComfyUI integration** - Not fully tested
-4. **File cleanup** - No automatic cleanup job running
+1. ~~**Test failures** - 6 tests failing due to async mocks~~ ✅ FIXED (78/78 passing)
+2. ~~**Workflow builder** - Using placeholder model names~~ ✅ FIXED (using v1-5-pruned-emaonly.safetensors)
+3. ~~**ComfyUI integration** - Not fully tested~~ ✅ TESTED (successful generation confirmed)
+4. ~~**File cleanup** - No automatic cleanup job running~~ ✅ IMPLEMENTED (APScheduler with daily cleanup)
 5. **Error messages** - Some could be more descriptive
 6. **Validation** - Some edge cases not validated
+7. **Image-to-image** - Not yet supported (requires workflow restructuring)
+8. **ControlNet models** - None installed (limits pose control to prompt engineering)
 
 ---
 
@@ -236,12 +292,12 @@ Last updated: 2025-01-09
 
 ## ✅ Completed
 
+### Core System (Original)
 - [x] Database models (UploadedFile, Generation)
 - [x] File service with deduplication
 - [x] Generation service with tracking
 - [x] All 13 API endpoints
 - [x] Comprehensive tooltips and documentation
-- [x] Unit tests (53 tests, 8 passing)
 - [x] Configuration system
 - [x] Swagger UI integration
 - [x] File upload with multipart support
@@ -250,6 +306,19 @@ Last updated: 2025-01-09
 - [x] Soft/hard deletion
 - [x] Generation status tracking
 - [x] Backward compatibility with base64
+
+### Recent Additions (2025-01-15)
+- [x] **All 78 tests passing** (100% pass rate, 87% code coverage)
+- [x] **Database initialization** - Tables created and verified
+- [x] **Storage directory setup** - Automated init script created
+- [x] **Fixed all deprecation warnings** - Updated to Pydantic v2, SQLAlchemy 2.0, datetime.now(timezone.utc)
+- [x] **APScheduler integration** - Automatic file cleanup with toggleable scheduler
+- [x] **Manual cleanup endpoint** - `POST /cleanup/orphaned-files`
+- [x] **ComfyUI integration tested** - Successful end-to-end generation confirmed
+- [x] **Workflow builder fixes** - Updated to use actual available models (v1-5-pruned-emaonly.safetensors)
+- [x] **Fixed workflow node ordering bug** - CheckpointLoader now correctly positioned
+- [x] **Fixed seed generation** - Changed from -1 to valid random positive integer
+- [x] **Pose-specific workflows** - Using prompt engineering for different view angles
 
 ---
 

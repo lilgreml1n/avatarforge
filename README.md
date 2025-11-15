@@ -1,6 +1,22 @@
 # AvatarForge API
 
-A FastAPI-based foundation for building applications with a clean architecture pattern.
+AI-powered avatar generation system with ComfyUI integration, file management, and deduplication.
+
+## Features
+
+- **Avatar Generation**: Generate high-quality avatars with customizable prompts, styles, and poses
+- **Multi-Pose Support**: Generate front, back, side, and quarter views
+- **File Management**: Automatic deduplication and reference counting
+- **ComfyUI Integration**: Leverage ComfyUI's powerful workflow system
+- **Quality Controls**: Adjustable resolution, steps, CFG scale, and samplers
+- **Scheduled Cleanup**: Automatic orphaned file cleanup
+- **RESTful API**: Clean, well-documented FastAPI endpoints
+
+## Quick Links
+
+- **[Generation Guide](docs/GENERATION_GUIDE.md)** - Complete guide to generating avatars
+- **[API Documentation](API_DOCUMENTATION.md)** - Full API reference
+- **[TODO List](TODO.md)** - Development roadmap and progress
 
 ## Project Structure
 
@@ -47,12 +63,31 @@ Or using uvicorn directly:
 uvicorn main:app --reload
 ```
 
+## Quick Start
+
+### Generate Your First Avatar
+
+```bash
+curl -X POST "http://localhost:8000/avatarforge-controller/generate/avatar" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "fantasy warrior with sword",
+    "clothing": "leather armor, cape",
+    "realism": false,
+    "width": 768,
+    "height": 768,
+    "steps": 30
+  }'
+```
+
+View the complete generation guide at **[docs/GENERATION_GUIDE.md](docs/GENERATION_GUIDE.md)**
+
 ## API Documentation
 
 Once running, visit:
-- Swagger UI: http://localhost:8000/api/docs
-- ReDoc: http://localhost:8000/api/redoc
-- OpenAPI JSON: http://localhost:8000/api/openapi.json
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+- OpenAPI JSON: http://localhost:8000/openapi.json
 
 ## Testing
 

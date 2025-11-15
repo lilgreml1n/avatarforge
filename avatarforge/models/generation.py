@@ -17,6 +17,7 @@ class Generation(Base):
         pose_type: Type of pose ('front', 'back', 'side', 'quarter', 'all', None)
         pose_file_id: Reference to uploaded pose image
         reference_file_id: Reference to uploaded reference image
+        user_id: User who requested the generation (nullable for backward compatibility)
         status: Current status ('queued', 'processing', 'completed', 'failed')
         workflow: ComfyUI workflow JSON
         output_files: JSON array of output file information
@@ -36,6 +37,7 @@ class Generation(Base):
     pose_type = Column(String, nullable=True)
     pose_file_id = Column(String, nullable=True)
     reference_file_id = Column(String, nullable=True)
+    user_id = Column(String, nullable=True, index=True)  # User who requested the generation
     status = Column(String, default="queued")  # queued, processing, completed, failed
     workflow = Column(JSON, nullable=True)
     output_files = Column(JSON, nullable=True)

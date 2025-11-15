@@ -19,6 +19,7 @@ class UploadedFile(Base):
         height: Image height in pixels
         storage_path: Relative path in storage system
         reference_count: Number of generations using this file
+        user_id: User who uploaded the file (nullable for backward compatibility)
         created_at: Upload timestamp
         last_accessed: Last time file was used
         is_deleted: Soft delete flag
@@ -35,6 +36,7 @@ class UploadedFile(Base):
     height = Column(Integer, nullable=True)
     storage_path = Column(String, nullable=False)
     reference_count = Column(Integer, default=0)
+    user_id = Column(String, nullable=True, index=True)  # User who uploaded the file
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_accessed = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     is_deleted = Column(Boolean, default=False)

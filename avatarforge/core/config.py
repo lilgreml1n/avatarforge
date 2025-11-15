@@ -2,7 +2,7 @@
 Application Configuration
 """
 from typing import List
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
 
@@ -55,15 +55,23 @@ class Settings(BaseSettings):
         description="Delete orphaned files after this many days of no use"
     )
 
+    # Scheduled tasks settings
+    ENABLE_SCHEDULER: bool = Field(
+        default=True,
+        description="Enable APScheduler for automated cleanup jobs"
+    )
+    CLEANUP_SCHEDULE_HOUR: int = Field(
+        default=2,
+        description="Hour (0-23) to run daily cleanup"
+    )
+
     # ComfyUI settings
     COMFYUI_URL: str = Field(
         default="http://localhost:8188",
         description="ComfyUI API base URL"
     )
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
 
 settings = Settings()
