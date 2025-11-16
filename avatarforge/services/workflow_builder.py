@@ -386,6 +386,216 @@ def build_inpaint_workflow(request) -> Dict[str, Any]:
     return workflow
 
 
+def build_qwen_inpaint_workflow(request) -> Dict[str, Any]:
+    """
+    Build a Qwen-Image-Edit-2509 inpainting workflow for high-quality edits
+
+    This uses the state-of-the-art Qwen Image Edit model which offers:
+    - Superior quality compared to traditional inpainting
+    - Better context understanding via vision-language model
+    - Precise control over edited regions
+
+    Args:
+        request: AvatarRequest object with:
+            - prompt (str): Editing instruction (e.g., "fix the eyes to be clear and bright")
+            - base_image (str): Filename of base image in ComfyUI input folder
+            - mask_image (str, optional): Filename of mask (white=edit, black=keep)
+            - negative_prompt (str, optional): What to avoid
+            - use_lightning (bool, optional): Use 4-step Lightning LoRA for speed
+            - steps (int, optional): Number of sampling steps (default 20, 4 with Lightning)
+            - cfg (float, optional): Guidance scale (default 2.0-3.0)
+
+    Returns:
+        Dict containing the ComfyUI Qwen inpainting workflow
+    """
+    import random
+
+    workflow = {
+        "prompt": {},
+        "client_id": "avatarforge"
+    }
+
+    node_id = 1
+
+    # 1. Load base image
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "image": request.base_image,
+            "upload": "image"
+        },
+        "class_type": "LoadImage"
+    }
+    base_image_node = str(node_id)
+    node_id += 1
+
+    # 2. Load Qwen UNET (GGUF)
+    model_filename = "Qwen-Image-Edit-2509-Q4_K_M.gguf"  # Q4_K_M quantization
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "unet_name": model_filename
+        },
+        "class_type": "UnetLoaderGGUF"  # From ComfyUI-GGUF custom node
+    }
+    unet_node = str(node_id)
+    node_id += 1
+
+    # 3. Load Qwen Text Encoder (CLIP)
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "clip_name1": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+            "type": "qwen"
+        },
+        "class_type": "DualCLIPLoader"
+    }
+    clip_node = str(node_id)
+    node_id += 1
+
+    # 4. Load VAE
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "vae_name": "qwen_image_vae.safetensors"
+        },
+        "class_type": "VAELoader"
+    }
+    vae_node = str(node_id)
+    node_id += 1
+
+    # 5. Optional: Load Lightning LoRA for 4-step inference
+    use_lightning = getattr(request, 'use_lightning', False)
+    if use_lightning:
+        workflow["prompt"][str(node_id)] = {
+            "inputs": {
+                "lora_name": "Qwen-Image-Edit-Lightning-4steps-V1.0.safetensors",
+                "strength_model": 1.0,
+                "model": [unet_node, 0]
+            },
+            "class_type": "LoraLoaderModelOnly"
+        }
+        model_node = str(node_id)
+        node_id += 1
+    else:
+        model_node = unet_node
+
+    # 6. Use base image directly (no scaling needed)
+    scaled_image_node = base_image_node
+
+    # 7. Encode positive prompt
+    prompt_text = request.prompt
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "text": prompt_text,
+            "clip": [clip_node, 0]
+        },
+        "class_type": "CLIPTextEncode"
+    }
+    positive_node = str(node_id)
+    node_id += 1
+
+    # 8. Encode negative prompt
+    negative_text = getattr(request, 'negative_prompt', 'blurry, low quality, distorted')
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "text": negative_text,
+            "clip": [clip_node, 0]
+        },
+        "class_type": "CLIPTextEncode"
+    }
+    negative_node = str(node_id)
+    node_id += 1
+
+    # 9. VAE Encode the image
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "pixels": [scaled_image_node, 0],
+            "vae": [vae_node, 0]
+        },
+        "class_type": "VAEEncode"
+    }
+    latent_node = str(node_id)
+    node_id += 1
+
+    # 10. Optional: Apply mask if provided
+    if hasattr(request, 'mask_image') and request.mask_image:
+        # Load mask
+        workflow["prompt"][str(node_id)] = {
+            "inputs": {
+                "image": request.mask_image,
+                "upload": "image"
+            },
+            "class_type": "LoadImage"
+        }
+        mask_image_node = str(node_id)
+        node_id += 1
+
+        # Convert to mask
+        workflow["prompt"][str(node_id)] = {
+            "inputs": {
+                "image": [mask_image_node, 0],
+                "channel": "red"
+            },
+            "class_type": "ImageToMask"
+        }
+        mask_node = str(node_id)
+        node_id += 1
+
+        # Apply mask to latent
+        workflow["prompt"][str(node_id)] = {
+            "inputs": {
+                "samples": [latent_node, 0],
+                "mask": [mask_node, 0]
+            },
+            "class_type": "SetLatentNoiseMask"
+        }
+        masked_latent_node = str(node_id)
+        node_id += 1
+    else:
+        masked_latent_node = latent_node
+
+    # 11. KSampler for image editing
+    steps = getattr(request, 'steps', 4 if use_lightning else 20)
+    cfg = getattr(request, 'cfg', 2.5)
+
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "seed": random.randint(0, 18446744073709551615),
+            "steps": steps,
+            "cfg": cfg,
+            "sampler_name": "euler",
+            "scheduler": "simple",
+            "denoise": 1.0,  # Full denoise for image editing
+            "model": [model_node, 0],
+            "positive": [positive_node, 0],
+            "negative": [negative_node, 0],
+            "latent_image": [masked_latent_node, 0]
+        },
+        "class_type": "KSampler"
+    }
+    sampler_node = str(node_id)
+    node_id += 1
+
+    # 12. VAE Decode
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "samples": [sampler_node, 0],
+            "vae": [vae_node, 0]
+        },
+        "class_type": "VAEDecode"
+    }
+    decode_node = str(node_id)
+    node_id += 1
+
+    # 13. Save Image
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "filename_prefix": "qwen_inpaint",
+            "images": [decode_node, 0]
+        },
+        "class_type": "SaveImage"
+    }
+
+    return workflow
+
+
 def build_pose_workflow(pose_type: str, request) -> Dict[str, Any]:
     """
     Build a workflow for a specific pose type
