@@ -161,9 +161,13 @@ def build_workflow(request) -> Dict[str, Any]:
     node_id += 1
 
     # 4. Checkpoint Loader (model selector based on realism)
-    # Note: Using v1-5-pruned-emaonly.safetensors as default model
-    # TODO: Add realistic_model.safetensors and anime_model.safetensors to ComfyUI models directory
-    model_name = "v1-5-pruned-emaonly.safetensors"  # Use available model for now
+    # Use high-quality Realistic Vision V5.1 for photorealistic generation
+    if request.realism:
+        model_name = "realisticVisionV51_v51VAE.safetensors"  # Professional photorealistic model
+    else:
+        # For anime/stylized, fall back to SD 1.5 or use same model with different prompting
+        model_name = "realisticVisionV51_v51VAE.safetensors"
+
     workflow["prompt"][str(node_id)] = {
         "inputs": {
             "ckpt_name": model_name
@@ -213,6 +217,167 @@ def build_workflow(request) -> Dict[str, Any]:
     workflow["prompt"][str(node_id)] = {
         "inputs": {
             "filename_prefix": "avatarforge",
+            "images": [decode_node, 0]
+        },
+        "class_type": "SaveImage"
+    }
+
+    return workflow
+
+
+def build_inpaint_workflow(request) -> Dict[str, Any]:
+    """
+    Build an inpainting workflow to fix specific regions (like eyes)
+
+    Args:
+        request: AvatarRequest object with:
+            - prompt (str): What to generate in masked area
+            - base_image (str): Base64 image to inpaint on
+            - mask_image (str): Base64 mask (white = inpaint, black = keep)
+            - denoise (float, optional): How much to change (0.5-1.0), default 0.75
+            - negative_prompt (str, optional): What to avoid
+
+    Returns:
+        Dict containing the ComfyUI inpaint workflow
+    """
+    import random
+
+    workflow = {
+        "prompt": {},
+        "client_id": "avatarforge"
+    }
+
+    node_id = 1
+
+    # 1. Load base image (from uploaded file)
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "image": request.base_image,
+            "upload": "image"
+        },
+        "class_type": "LoadImage"
+    }
+    base_image_node = str(node_id)
+    node_id += 1
+
+    # 2. Load mask image (from uploaded file)
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "image": request.mask_image,
+            "upload": "image"
+        },
+        "class_type": "LoadImage"
+    }
+    mask_image_node = str(node_id)
+    node_id += 1
+
+    # 2b. Convert image to mask
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "image": [mask_image_node, 0],
+            "channel": "red"
+        },
+        "class_type": "ImageToMask"
+    }
+    mask_node = str(node_id)
+    node_id += 1
+
+    # 3. Checkpoint Loader
+    model_name = "realisticVisionV51_v51VAE.safetensors"
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "ckpt_name": model_name
+        },
+        "class_type": "CheckpointLoaderSimple"
+    }
+    checkpoint_node = str(node_id)
+    node_id += 1
+
+    # 4. Positive prompt (focused on the area to fix)
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "text": request.prompt,
+            "clip": [checkpoint_node, 1]
+        },
+        "class_type": "CLIPTextEncode"
+    }
+    positive_node = str(node_id)
+    node_id += 1
+
+    # 5. Negative prompt
+    negative_text = getattr(request, 'negative_prompt', 'blurry, low quality')
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "text": negative_text,
+            "clip": [checkpoint_node, 1]
+        },
+        "class_type": "CLIPTextEncode"
+    }
+    negative_node = str(node_id)
+    node_id += 1
+
+    # 6. VAE Encode the base image
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "pixels": [base_image_node, 0],
+            "vae": [checkpoint_node, 2]
+        },
+        "class_type": "VAEEncode"
+    }
+    vae_encode_node = str(node_id)
+    node_id += 1
+
+    # 7. Set Latent Noise Mask (applies mask to latent)
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "samples": [vae_encode_node, 0],
+            "mask": [mask_node, 0]
+        },
+        "class_type": "SetLatentNoiseMask"
+    }
+    masked_latent_node = str(node_id)
+    node_id += 1
+
+    # 8. KSampler for inpainting
+    steps = getattr(request, 'steps', 60)
+    cfg = getattr(request, 'cfg', 7.0)
+    denoise = getattr(request, 'denoise', 0.75)
+    sampler_name = getattr(request, 'sampler_name', 'dpmpp_2m')  # Fixed sampler name
+    scheduler = getattr(request, 'scheduler', 'karras')
+
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "seed": random.randint(0, 18446744073709551615),
+            "steps": steps,
+            "cfg": cfg,
+            "sampler_name": sampler_name,
+            "scheduler": scheduler,
+            "denoise": denoise,  # Partial denoise for inpainting
+            "model": [checkpoint_node, 0],
+            "positive": [positive_node, 0],
+            "negative": [negative_node, 0],
+            "latent_image": [masked_latent_node, 0]
+        },
+        "class_type": "KSampler"
+    }
+    sampler_node = str(node_id)
+    node_id += 1
+
+    # 9. VAE Decode
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "samples": [sampler_node, 0],
+            "vae": [checkpoint_node, 2]
+        },
+        "class_type": "VAEDecode"
+    }
+    decode_node = str(node_id)
+    node_id += 1
+
+    # 10. Save Image
+    workflow["prompt"][str(node_id)] = {
+        "inputs": {
+            "filename_prefix": "inpainted",
             "images": [decode_node, 0]
         },
         "class_type": "SaveImage"
