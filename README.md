@@ -1,6 +1,10 @@
 # AvatarForge API
 
+**Purpose:**  
 AI-powered avatar generation system with ComfyUI integration, file management, and deduplication.
+
+**Why this exists:**  
+To enable high-quality, locally-controlled AI avatar generation for games and applications. By leveraging local GPU resources (or the DGX server), it avoids the costs and rate limits of external APIs while providing granular control over the generation pipeline via ComfyUI.
 
 ## Features
 
